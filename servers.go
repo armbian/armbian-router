@@ -54,14 +54,18 @@ func (s ServerList) Check() {
 			if err != nil {
 				// This should never happen.
 				log.WithError(err).Warning("Invalid request! This should not happen, please check config.")
+				wg.Done()
 				return
 			}
 
 			res, err := checkClient.Do(req)
 
 			if err != nil {
-				log.WithField("server", server.Host).Info("Server went offline")
-				server.Available = false
+				if server.Available {
+					log.WithField("server", server.Host).Info("Server went offline")
+					server.Available = false
+				}
+				wg.Done()
 				return
 			}
 
@@ -70,6 +74,7 @@ func (s ServerList) Check() {
 				server.Available = true
 				log.WithField("server", server.Host).Info("Server is online")
 			}
+
 			wg.Done()
 		}(server)
 	}

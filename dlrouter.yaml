@@ -1,4 +1,5 @@
 geodb: GeoIP2-City.mmdb
+dl_map: userdata.csv
 
 servers:
     - mirrors.tuna.tsinghua.edu.cn/armbian/

@@ -13,6 +13,8 @@ import (
 var (
 	db      *maxminddb.Reader
 	servers ServerList
+
+	dlMap map[string]string
 )
 
 // City represents a MaxmindDB city
@@ -39,6 +41,16 @@ func main() {
 
 	if err != nil {
 		log.WithError(err).Fatalln("Unable to open database")
+	}
+
+	if mapFile := viper.GetString("dl_map"); mapFile != "" {
+		log.WithField("file", mapFile).Info("Loading download map")
+
+		dlMap, err = loadMap(mapFile)
+
+		if err != nil {
+			log.WithError(err).Fatalln("Unable to load download map")
+		}
 	}
 
 	serverList := viper.GetStringSlice("servers")
@@ -108,6 +120,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/status", RealIPMiddleware(statusRequest))
+	mux.HandleFunc("/servers", RealIPMiddleware(serversRequest))
 	mux.HandleFunc("/", RealIPMiddleware(redirectRequest))
 
 	http.ListenAndServe(":8080", mux)

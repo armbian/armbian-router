@@ -1,15 +1,23 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 )
 
 func statusRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
+}
+
+func serversRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(servers)
 }
 
 func redirectRequest(w http.ResponseWriter, r *http.Request) {
@@ -40,10 +48,18 @@ func redirectRequest(w http.ResponseWriter, r *http.Request) {
 		scheme = "https"
 	}
 
+	redirectPath := path.Join(server.Path, r.URL.Path)
+
+	if dlMap != nil {
+		if newPath, exists := dlMap[strings.TrimLeft(r.URL.Path, "/")]; exists {
+			redirectPath = path.Join(server.Path, newPath)
+		}
+	}
+
 	u := &url.URL{
 		Scheme: scheme,
 		Host:   server.Host,
-		Path:   path.Join(server.Path, r.URL.Path),
+		Path:   redirectPath,
 	}
 
 	w.Header().Set("X-Geo-Distance", fmt.Sprintf("%f", distance))

@@ -5,9 +5,8 @@ go 1.17
 require (
 	github.com/oschwald/maxminddb-golang v1.8.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/viper v1.10.1
 )
-
-require github.com/spf13/viper v1.10.1
 
 require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
