@@ -1,0 +1,11 @@
+geodb: GeoIP2-City.mmdb
+
+servers:
+    - mirrors.tuna.tsinghua.edu.cn/armbian/
+    - armbian.tnahosting.net/apt/
+    - us.mirrors.fossho.st/armbian/armbian/
+    - uk.mirrors.fossho.st/armbian/apt/
+    - armbian.systemonachip.net/apt/
+    - mirrors.netix.net/armbian/apt/
+    - mirrors.dotsrc.org/armbian-apt/
+    - armbian.lv.auroradev.org/apt/

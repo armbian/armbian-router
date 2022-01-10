@@ -1,0 +1,41 @@
+kind: pipeline
+name: default
+type: docker
+
+steps:
+  - name: build
+    image: tystuyfzand/goc:latest
+    volumes:
+      - name: build
+        path: /build
+    commands:
+      - mkdir -p /build
+      - go mod download
+      - goc -o /build/gogrok
+    environment:
+      GOOS: linux,windows,darwin
+      GOARCH: 386,amd64,arm,arm64
+  - name: release
+    image: plugins/gitea-release
+    volumes:
+      - name: build
+        path: /build
+    settings:
+      api_key:
+        from_secret: gitea_token
+      base_url: https://git.meow.tf
+      title: release
+      files:
+        - /build/dlrouter_*
+      checksum:
+        - md5
+        - sha1
+        - sha256
+    environment:
+      PLUGIN_API_KEY:
+        from_secret: gitea_token
+    when:
+      event: tag
+volumes:
+  - name: build
+    temp: {}
