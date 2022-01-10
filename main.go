@@ -124,6 +124,7 @@ func main() {
 	mux.HandleFunc("/status", statusHandler)
 	mux.HandleFunc("/mirrors", mirrorsHandler)
 	mux.HandleFunc("/reload", reloadHandler)
+	mux.HandleFunc("/dl_map", dlMapHandler)
 	mux.HandleFunc("/", RealIPMiddleware(redirectHandler))
 
 	http.ListenAndServe(viper.GetString("bind"), mux)

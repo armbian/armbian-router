@@ -87,3 +87,14 @@ func reloadHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNotFound)
 }
+
+func dlMapHandler(w http.ResponseWriter, r *http.Request) {
+	if dlMap == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(dlMap)
+}
