@@ -26,6 +26,8 @@ type City struct {
 }
 
 func main() {
+	viper.SetDefault("bind", ":8080")
+
 	viper.SetConfigName("dlrouter")        // name of config file (without extension)
 	viper.SetConfigType("yaml")            // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath("/etc/dlrouter/")  // path to look for the config file in
@@ -119,9 +121,10 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/status", RealIPMiddleware(statusRequest))
-	mux.HandleFunc("/servers", RealIPMiddleware(serversRequest))
-	mux.HandleFunc("/", RealIPMiddleware(redirectRequest))
+	mux.HandleFunc("/status", statusHandler)
+	mux.HandleFunc("/mirrors", mirrorsHandler)
+	mux.HandleFunc("/reload", reloadHandler)
+	mux.HandleFunc("/", RealIPMiddleware(redirectHandler))
 
-	http.ListenAndServe(":8080", mux)
+	http.ListenAndServe(viper.GetString("bind"), mux)
 }

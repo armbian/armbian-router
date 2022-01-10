@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"net"
 	"net/http"
 	"net/url"
@@ -10,17 +12,17 @@ import (
 	"strings"
 )
 
-func statusRequest(w http.ResponseWriter, r *http.Request) {
+func statusHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func serversRequest(w http.ResponseWriter, r *http.Request) {
+func mirrorsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(servers)
 }
 
-func redirectRequest(w http.ResponseWriter, r *http.Request) {
+func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
 
 	if err != nil {
@@ -65,4 +67,23 @@ func redirectRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Geo-Distance", fmt.Sprintf("%f", distance))
 	w.Header().Set("Location", u.String())
 	w.WriteHeader(http.StatusFound)
+}
+
+func reloadHandler(w http.ResponseWriter, r *http.Request) {
+	if mapFile := viper.GetString("dl_map"); mapFile != "" {
+		log.WithField("file", mapFile).Info("Loading download map")
+
+		newMap, err := loadMap(mapFile)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		dlMap = newMap
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
 }
