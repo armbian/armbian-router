@@ -11,7 +11,7 @@ steps:
     commands:
       - mkdir -p /build
       - go mod download
-      - goc -o /build/gogrok
+      - goc -o /build/dlrouter
     environment:
       GOOS: linux,windows,darwin
       GOARCH: 386,amd64,arm,arm64
