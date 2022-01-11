@@ -27,6 +27,59 @@ type Server struct {
 	Redirects prometheus.Counter
 }
 
+func (server *Server) checkStatus() {
+	req, err := http.NewRequest(http.MethodGet, "https://"+server.Host+"/"+strings.TrimLeft(server.Path, "/"), nil)
+
+	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
+
+	if err != nil {
+		// This should never happen.
+		log.WithFields(log.Fields{
+			"server": server.Host,
+			"error":  err,
+		}).Warning("Invalid request! This should not happen, please check config.")
+		return
+	}
+
+	res, err := checkClient.Do(req)
+
+	if err != nil {
+		if server.Available {
+			log.WithFields(log.Fields{
+				"server": server.Host,
+				"error":  err,
+			}).Info("Server went offline")
+
+			server.Available = false
+		} else {
+			log.WithFields(log.Fields{
+				"server": server.Host,
+				"error":  err,
+			}).Debug("Server is still offline")
+		}
+		return
+	}
+
+	responseFields := log.Fields{
+		"server":       server.Host,
+		"responseCode": res.StatusCode,
+	}
+
+	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
+		if !server.Available {
+			server.Available = true
+			log.WithFields(responseFields).Info("Server is online")
+		}
+	} else {
+		log.WithFields(responseFields).Debug("Server status not known")
+
+		if server.Available {
+			log.WithFields(responseFields).Info("Server went offline")
+			server.Available = false
+		}
+	}
+}
+
 type ServerList []*Server
 
 func (s ServerList) checkLoop() {
@@ -50,44 +103,7 @@ func (s ServerList) Check() {
 		go func(server *Server) {
 			defer wg.Done()
 
-			req, err := http.NewRequest(http.MethodGet, "https://"+server.Host+"/"+strings.TrimLeft(server.Path, "/"), nil)
-
-			req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
-
-			if err != nil {
-				// This should never happen.
-				log.WithError(err).Warning("Invalid request! This should not happen, please check config.")
-				return
-			}
-
-			res, err := checkClient.Do(req)
-
-			if err != nil {
-				if server.Available {
-					log.WithField("server", server.Host).Info("Server went offline")
-					server.Available = false
-				} else {
-					log.WithField("server", server.Host).Info("Server is still offline")
-				}
-				return
-			}
-
-			if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
-				if !server.Available {
-					server.Available = true
-					log.WithField("server", server.Host).Info("Server is online")
-				}
-			} else {
-				log.WithFields(log.Fields{
-					"server":       server.Host,
-					"responseCode": res.StatusCode,
-				}).Debug("Server status not known")
-
-				if server.Available {
-					log.WithField("server", server.Host).Info("Server went offline")
-					server.Available = false
-				}
-			}
+			server.checkStatus()
 		}(server)
 	}
 
