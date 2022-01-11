@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"math"
 	"net"
@@ -23,6 +24,7 @@ type Server struct {
 	Path      string
 	Latitude  float64
 	Longitude float64
+	Redirects prometheus.Counter
 }
 
 type ServerList []*Server
@@ -31,9 +33,8 @@ func (s ServerList) checkLoop() {
 	t := time.NewTicker(60 * time.Second)
 
 	for {
-		<-t.C
-
 		s.Check()
+		<-t.C
 	}
 }
 
@@ -47,6 +48,8 @@ func (s ServerList) Check() {
 		wg.Add(1)
 
 		go func(server *Server) {
+			defer wg.Done()
+
 			req, err := http.NewRequest(http.MethodGet, "https://"+server.Host+"/"+strings.TrimLeft(server.Path, "/"), nil)
 
 			req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
@@ -54,7 +57,6 @@ func (s ServerList) Check() {
 			if err != nil {
 				// This should never happen.
 				log.WithError(err).Warning("Invalid request! This should not happen, please check config.")
-				wg.Done()
 				return
 			}
 
@@ -64,18 +66,28 @@ func (s ServerList) Check() {
 				if server.Available {
 					log.WithField("server", server.Host).Info("Server went offline")
 					server.Available = false
+				} else {
+					log.WithField("server", server.Host).Info("Server is still offline")
 				}
-				wg.Done()
 				return
 			}
 
-			if (res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound) &&
-				!server.Available {
-				server.Available = true
-				log.WithField("server", server.Host).Info("Server is online")
-			}
+			if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
+				if !server.Available {
+					server.Available = true
+					log.WithField("server", server.Host).Info("Server is online")
+				}
+			} else {
+				log.WithFields(log.Fields{
+					"server":       server.Host,
+					"responseCode": res.StatusCode,
+				}).Debug("Server status not known")
 
-			wg.Done()
+				if server.Available {
+					log.WithField("server", server.Host).Info("Server went offline")
+					server.Available = false
+				}
+			}
 		}(server)
 	}
 

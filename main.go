@@ -2,12 +2,16 @@ package main
 
 import (
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 )
 
 var (
@@ -15,6 +19,16 @@ var (
 	servers ServerList
 
 	dlMap map[string]string
+
+	redirectsServed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "armbian_router_redirects",
+		Help: "The total number of processed redirects",
+	})
+
+	downloadsMapped = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "armbian_router_download_maps",
+		Help: "The total number of mapped download paths",
+	})
 )
 
 // City represents a MaxmindDB city
@@ -57,62 +71,21 @@ func main() {
 
 	serverList := viper.GetStringSlice("servers")
 
+	var wg sync.WaitGroup
+
 	for _, server := range serverList {
-		var prefix string
+		wg.Add(1)
 
-		if !strings.HasPrefix(server, "http") {
-			prefix = "https://"
-		}
+		go func(server string) {
+			defer wg.Done()
 
-		u, err := url.Parse(prefix + server)
-
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":  err,
-				"server": server,
-			}).Warning("Server is invalid")
-			continue
-		}
-
-		ips, err := net.LookupIP(u.Host)
-
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":  err,
-				"server": server,
-			}).Warning("Could not resolve address")
-			continue
-		}
-
-		var city City
-		err = db.Lookup(ips[0], &city)
-
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":  err,
-				"server": server,
-			}).Warning("Could not geolocate address")
-			continue
-		}
-
-		servers = append(servers, &Server{
-			Host:      u.Host,
-			Path:      u.Path,
-			Latitude:  city.Location.Latitude,
-			Longitude: city.Location.Longitude,
-		})
-
-		log.WithFields(log.Fields{
-			"server":    u.Host,
-			"path":      u.Path,
-			"latitude":  city.Location.Latitude,
-			"longitude": city.Location.Longitude,
-		}).Info("Added server")
+			addServer(server)
+		}(server)
 	}
 
+	wg.Wait()
+
 	log.Info("Servers added, checking statuses")
-	// Force initial check before running
-	servers.Check()
 
 	// Start check loop
 	go servers.checkLoop()
@@ -125,7 +98,69 @@ func main() {
 	mux.HandleFunc("/mirrors", mirrorsHandler)
 	mux.HandleFunc("/reload", reloadHandler)
 	mux.HandleFunc("/dl_map", dlMapHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", RealIPMiddleware(redirectHandler))
 
 	http.ListenAndServe(viper.GetString("bind"), mux)
+}
+
+var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
+
+func addServer(server string) {
+	var prefix string
+
+	if !strings.HasPrefix(server, "http") {
+		prefix = "https://"
+	}
+
+	u, err := url.Parse(prefix + server)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":  err,
+			"server": server,
+		}).Warning("Server is invalid")
+		return
+	}
+
+	ips, err := net.LookupIP(u.Host)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":  err,
+			"server": server,
+		}).Warning("Could not resolve address")
+		return
+	}
+
+	var city City
+	err = db.Lookup(ips[0], &city)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":  err,
+			"server": server,
+		}).Warning("Could not geolocate address")
+		return
+	}
+
+	redirects := promauto.NewCounter(prometheus.CounterOpts{
+		Name: "armbian_router_redirects_" + metricReplacer.Replace(u.Host),
+		Help: "The number of redirects for server " + u.Host,
+	})
+
+	servers = append(servers, &Server{
+		Host:      u.Host,
+		Path:      u.Path,
+		Latitude:  city.Location.Latitude,
+		Longitude: city.Location.Longitude,
+		Redirects: redirects,
+	})
+
+	log.WithFields(log.Fields{
+		"server":    u.Host,
+		"path":      u.Path,
+		"latitude":  city.Location.Latitude,
+		"longitude": city.Location.Longitude,
+	}).Info("Added server")
 }

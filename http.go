@@ -54,6 +54,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 
 	if dlMap != nil {
 		if newPath, exists := dlMap[strings.TrimLeft(r.URL.Path, "/")]; exists {
+			downloadsMapped.Inc()
 			redirectPath = path.Join(server.Path, newPath)
 		}
 	}
@@ -63,6 +64,9 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 		Host:   server.Host,
 		Path:   redirectPath,
 	}
+
+	server.Redirects.Inc()
+	redirectsServed.Inc()
 
 	w.Header().Set("X-Geo-Distance", fmt.Sprintf("%f", distance))
 	w.Header().Set("Location", u.String())

@@ -20,6 +20,8 @@ func loadMap(file string) (map[string]string, error) {
 
 	r := csv.NewReader(f)
 
+	r.Comma = '|'
+
 	for {
 		row, err := r.Read()
 
