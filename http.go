@@ -44,12 +44,6 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scheme := r.URL.Scheme
-
-	if scheme == "" {
-		scheme = "https"
-	}
-
 	redirectPath := path.Join(server.Path, r.URL.Path)
 
 	if dlMap != nil {
@@ -60,7 +54,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u := &url.URL{
-		Scheme: scheme,
+		Scheme: realProto(r),
 		Host:   server.Host,
 		Path:   redirectPath,
 	}

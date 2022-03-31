@@ -15,8 +15,8 @@ var (
 
 // RealIPMiddleware is an implementation of reverse proxy checks.
 // It uses the remote address to find the originating IP, as well as protocol
-func RealIPMiddleware(f http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func RealIPMiddleware(f http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Treat unix socket as 127.0.0.1
 		if r.RemoteAddr == "@" {
 			r.RemoteAddr = "127.0.0.1:0"
@@ -29,7 +29,7 @@ func RealIPMiddleware(f http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if net.ParseIP(host).IsPrivate() {
+		if !net.ParseIP(host).IsPrivate() {
 			f.ServeHTTP(w, r)
 			return
 		}
@@ -43,7 +43,7 @@ func RealIPMiddleware(f http.HandlerFunc) http.HandlerFunc {
 		}
 
 		f.ServeHTTP(w, r)
-	}
+	})
 }
 
 func realIP(r *http.Request) string {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -92,16 +94,19 @@ func main() {
 
 	log.Info("Starting")
 
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.HandleFunc("/status", statusHandler)
-	mux.HandleFunc("/mirrors", mirrorsHandler)
-	mux.HandleFunc("/reload", reloadHandler)
-	mux.HandleFunc("/dl_map", dlMapHandler)
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/", RealIPMiddleware(redirectHandler))
+	r.Use(RealIPMiddleware)
+	r.Use(middleware.Logger)
 
-	http.ListenAndServe(viper.GetString("bind"), mux)
+	r.HandleFunc("/status", statusHandler)
+	r.HandleFunc("/mirrors", mirrorsHandler)
+	r.HandleFunc("/reload", reloadHandler)
+	r.HandleFunc("/dl_map", dlMapHandler)
+	r.Handle("/metrics", promhttp.Handler())
+	r.HandleFunc("/", redirectHandler)
+
+	http.ListenAndServe(viper.GetString("bind"), r)
 }
 
 var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
