@@ -1,16 +1,43 @@
-geodb: GeoIP2-City.mmdb
+# GeoIP Database Path
+geodb: GeoLite2-City.mmdb
 
+# LRU Cache Size (in items)
+cacheSize: 1024
+
+# Server definition
+# Weights are just like nginx, where if it's > 1 it'll be chosen x out of x + total times
+# By default, the top 3 servers are used for choosing the best.
+# server = full url or host+path
+# weight = int
+# optional: latitude, longitude (float)
 servers:
-    - https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/
-    - https://mirrors.bfsu.edu.cn/armbian-releases/
-    - https://mirrors.nju.edu.cn/armbian-releases/
-    - https://mirrors.ustc.edu.cn/armbian-dl/
-    - https://mirror.12z.eu/pub/linux/armbian/dl/
-    - https://armbian.tnahosting.net/dl/
-    - https://stpete-mirror.armbian.com/dl/
-    - https://mirror.armbian.de/dl/
-    - https://mirrors.netix.net/armbian/dl/
-    - https://mirrors.dotsrc.org/armbian-dl/
-    - https://armbian.hosthatch.com/dl/
-    - https://xogium.performanceservers.nl/dl/
-    - https://github.com/armbian/mirror/releases/download/
+    - server: armbian.12z.eu/apt/
+    - server: armbian.chi.auroradev.org/apt/
+      weight: 5
+      latitude: 41.8879
+      longitude: -88.1995
+    - server: armbian.hosthatch.com/apt/
+    - server: armbian.lv.auroradev.org/apt/
+      weight: 5
+    - server: armbian.site-meganet.com/apt/
+    - server: armbian.systemonachip.net/apt/
+    - server: armbian.tnahosting.net/apt/
+      weight: 5
+    - server: au-mirror.bret.dk/armbian/apt/
+    - server: es-mirror.bret.dk/armbian/apt/
+    - server: imola.armbian.com/apt/
+    - server: mirror.iscas.ac.cn/armbian/
+    - server: mirror.sjtu.edu.cn/armbian/
+    - server: mirrors.aliyun.com/armbian/
+    - server: mirrors.bfsu.edu.cn/armbian/
+    - server: mirrors.dotsrc.org/armbian-apt/
+      weight: 5
+    - server: mirrors.netix.net/armbian/apt/
+    - server: mirrors.nju.edu.cn/armbian/
+    - server: mirrors.sustech.edu.cn/armbian/
+    - server: mirrors.tuna.tsinghua.edu.cn/armbian/
+    - server: mirrors.ustc.edu.cn/armbian/
+    - server: mirrors.xtom.de/armbian/
+    - server: sg-mirror.bret.dk/armbian/apt/
+    - server: stpete-mirror.armbian.com/apt/
+    - server: xogium.performanceservers.nl/apt/

@@ -4,19 +4,16 @@ import (
 	"flag"
 	"github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
-	"sync"
 	"syscall"
 )
 
@@ -35,6 +32,10 @@ var (
 		Name: "armbian_router_download_maps",
 		Help: "The total number of mapped download paths",
 	})
+
+	serverCache *lru.Cache
+
+	topChoices int
 )
 
 // City represents a MaxmindDB city
@@ -45,6 +46,13 @@ type City struct {
 	} `maxminddb:"location"`
 }
 
+type ServerConfig struct {
+	Server    string  `mapstructure:"server" yaml:"server"`
+	Latitude  float64 `mapstructure:"latitude" yaml:"latitude"`
+	Longitude float64 `mapstructure:"longitude" yaml:"longitude"`
+	Weight    int     `mapstructure:"weight" yaml:"weight"`
+}
+
 var (
 	configFlag = flag.String("config", "", "configuration file path")
 )
@@ -53,6 +61,8 @@ func main() {
 	flag.Parse()
 
 	viper.SetDefault("bind", ":8080")
+	viper.SetDefault("cacheSize", 1024)
+	viper.SetDefault("topChoices", 3)
 
 	viper.SetConfigName("dlrouter")        // name of config file (without extension)
 	viper.SetConfigType("yaml")            // REQUIRED if the config file does not have the extension in the name
@@ -64,43 +74,7 @@ func main() {
 		viper.SetConfigFile(*configFlag)
 	}
 
-	err := viper.ReadInConfig() // Find and read the config file
-
-	if err != nil { // Handle errors reading the config file
-		log.WithError(err).Fatalln("Unable to load config file")
-	}
-
-	db, err = maxminddb.Open(viper.GetString("geodb"))
-
-	if err != nil {
-		log.WithError(err).Fatalln("Unable to open database")
-	}
-
-	if mapFile := viper.GetString("dl_map"); mapFile != "" {
-		log.WithField("file", mapFile).Info("Loading download map")
-
-		dlMap, err = loadMap(mapFile)
-
-		if err != nil {
-			log.WithError(err).Fatalln("Unable to load download map")
-		}
-	}
-
-	serverList := viper.GetStringSlice("servers")
-
-	var wg sync.WaitGroup
-
-	for _, server := range serverList {
-		wg.Add(1)
-
-		go func(server string) {
-			defer wg.Done()
-
-			addServer(server)
-		}(server)
-	}
-
-	wg.Wait()
+	reloadConfig()
 
 	log.Info("Servers added, checking statuses")
 
@@ -135,85 +109,6 @@ func main() {
 			break
 		}
 
-		reloadMap()
+		reloadConfig()
 	}
-}
-
-var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
-
-func addServer(server string) {
-	var prefix string
-
-	if !strings.HasPrefix(server, "http") {
-		prefix = "https://"
-	}
-
-	u, err := url.Parse(prefix + server)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error":  err,
-			"server": server,
-		}).Warning("Server is invalid")
-		return
-	}
-
-	ips, err := net.LookupIP(u.Host)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error":  err,
-			"server": server,
-		}).Warning("Could not resolve address")
-		return
-	}
-
-	var city City
-	err = db.Lookup(ips[0], &city)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error":  err,
-			"server": server,
-		}).Warning("Could not geolocate address")
-		return
-	}
-
-	redirects := promauto.NewCounter(prometheus.CounterOpts{
-		Name: "armbian_router_redirects_" + metricReplacer.Replace(u.Host),
-		Help: "The number of redirects for server " + u.Host,
-	})
-
-	servers = append(servers, &Server{
-		Host:      u.Host,
-		Path:      u.Path,
-		Latitude:  city.Location.Latitude,
-		Longitude: city.Location.Longitude,
-		Redirects: redirects,
-	})
-
-	log.WithFields(log.Fields{
-		"server":    u.Host,
-		"path":      u.Path,
-		"latitude":  city.Location.Latitude,
-		"longitude": city.Location.Longitude,
-	}).Info("Added server")
-}
-
-func reloadMap() {
-	mapFile := viper.GetString("dl_map")
-
-	if mapFile == "" {
-		return
-	}
-
-	log.WithField("file", mapFile).Info("Loading download map")
-
-	newMap, err := loadMap(mapFile)
-
-	if err != nil {
-		return
-	}
-
-	dlMap = newMap
 }

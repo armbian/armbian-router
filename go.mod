@@ -5,6 +5,8 @@ go 1.17
 require (
 	github.com/chi-middleware/logrus-logger v0.2.0
 	github.com/go-chi/chi/v5 v5.0.7
+	github.com/hashicorp/golang-lru v0.5.4
+	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff
 	github.com/oschwald/maxminddb-golang v1.8.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/sirupsen/logrus v1.8.1

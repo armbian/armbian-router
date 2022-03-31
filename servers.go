@@ -1,12 +1,14 @@
 package main
 
 import (
+	"github.com/jmcvetta/randutil"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"math"
 	"net"
 	"net/http"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +26,7 @@ type Server struct {
 	Path      string
 	Latitude  float64
 	Longitude float64
+	Weight    int
 	Redirects prometheus.Counter
 }
 
@@ -86,8 +89,8 @@ func (s ServerList) checkLoop() {
 	t := time.NewTicker(60 * time.Second)
 
 	for {
-		s.Check()
 		<-t.C
+		s.Check()
 	}
 }
 
@@ -110,9 +113,38 @@ func (s ServerList) Check() {
 	wg.Wait()
 }
 
-// Closest will use GeoIP on the IP provided and find the closest server.
+// ComputedDistance is a wrapper that contains a Server and Distance.
+type ComputedDistance struct {
+	Server   *Server
+	Distance float64
+}
+
+// DistanceList is a list of Computed Distances with an easy "Choices" func
+type DistanceList []ComputedDistance
+
+func (d DistanceList) Choices() []randutil.Choice {
+	c := make([]randutil.Choice, len(d))
+
+	for i, item := range d {
+		c[i] = randutil.Choice{
+			Weight: item.Server.Weight,
+			Item:   item,
+		}
+	}
+
+	return c
+}
+
+// Closest will use GeoIP on the IP provided and find the closest servers.
+// When we have a list of x servers closest, we can choose a random or weighted one.
 // Return values are the closest server, the distance, and if an error occurred.
 func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
+	i, exists := serverCache.Get(ip.String())
+
+	if exists {
+		return i.(ComputedDistance).Server, i.(ComputedDistance).Distance, nil
+	}
+
 	var city City
 	err := db.Lookup(ip, &city)
 
@@ -120,23 +152,35 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 		return nil, -1, err
 	}
 
-	var closest *Server
-	var closestDistance float64 = -1
+	c := make(DistanceList, len(s))
 
-	for _, server := range s {
+	for i, server := range s {
 		if !server.Available {
 			continue
 		}
 
-		distance := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
-
-		if closestDistance == -1 || distance < closestDistance {
-			closestDistance = distance
-			closest = server
+		c[i] = ComputedDistance{
+			Server:   server,
+			Distance: Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude),
 		}
 	}
 
-	return closest, closestDistance, nil
+	// Sort by distance
+	sort.Slice(s, func(i int, j int) bool {
+		return c[i].Distance < c[j].Distance
+	})
+
+	choice, err := randutil.WeightedChoice(c[0:topChoices].Choices())
+
+	if err != nil {
+		return nil, -1, err
+	}
+
+	dist := choice.Item.(ComputedDistance)
+
+	serverCache.Add(ip.String(), dist)
+
+	return dist.Server, dist.Distance, nil
 }
 
 // haversin(θ) function
