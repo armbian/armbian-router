@@ -11,6 +11,7 @@ steps:
     commands:
       - mkdir -p /build
       - go mod download
+      - export CGO_ENABLED=0
       - goc -o /build/dlrouter
     environment:
       GOOS: linux,windows,darwin
@@ -36,6 +37,15 @@ steps:
         from_secret: gitea_token
     when:
       event: tag
+  - name: docker
+    image: plugins/docker
+    settings:
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      repo: registry.meow.tf/tyler/armbian-router
+      registry: registry.meow.tf
 volumes:
   - name: build
     temp: {}
