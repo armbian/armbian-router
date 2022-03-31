@@ -4,7 +4,9 @@ ADD . /src
 
 WORKDIR /src
 
-RUN CGO_ENABLED=0 go build -o /src/dlrouter
+RUN apk add --no-cache git && \
+	export CGO_ENABLED=0 && \
+    go build -o /src/dlrouter
 
 FROM alpine
 
