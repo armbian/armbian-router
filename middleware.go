@@ -29,7 +29,9 @@ func RealIPMiddleware(f http.Handler) http.Handler {
 			return
 		}
 
-		if !net.ParseIP(host).IsPrivate() {
+		netIP := net.ParseIP(host)
+
+		if !netIP.IsLoopback() && !netIP.IsPrivate() {
 			f.ServeHTTP(w, r)
 			return
 		}
