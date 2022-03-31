@@ -16,6 +16,7 @@ steps:
     environment:
       GOOS: linux,windows,darwin
       GOARCH: 386,amd64,arm,arm64
+    depends_on: [ clone ]
   - name: release
     image: plugins/gitea-release
     volumes:
@@ -37,6 +38,7 @@ steps:
         from_secret: gitea_token
     when:
       event: tag
+    depends_on: [ build ]
   - name: docker
     image: plugins/docker
     settings:
@@ -46,6 +48,7 @@ steps:
         from_secret: docker_password
       repo: registry.meow.tf/tyler/armbian-router
       registry: registry.meow.tf
+    depends_on: [ clone ]
 volumes:
   - name: build
     temp: {}
