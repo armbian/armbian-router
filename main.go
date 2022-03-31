@@ -50,6 +50,8 @@ var (
 )
 
 func main() {
+	flag.Parse()
+
 	viper.SetDefault("bind", ":8080")
 
 	viper.SetConfigName("dlrouter")        // name of config file (without extension)
