@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/oschwald/maxminddb-golang"
@@ -41,6 +42,10 @@ type City struct {
 	} `maxminddb:"location"`
 }
 
+var (
+	configFlag = flag.String("config", "", "configuration file path")
+)
+
 func main() {
 	viper.SetDefault("bind", ":8080")
 
@@ -49,7 +54,12 @@ func main() {
 	viper.AddConfigPath("/etc/dlrouter/")  // path to look for the config file in
 	viper.AddConfigPath("$HOME/.dlrouter") // call multiple times to add many search paths
 	viper.AddConfigPath(".")               // optionally look for config in the working directory
-	err := viper.ReadInConfig()            // Find and read the config file
+
+	if *configFlag != "" {
+		viper.SetConfigFile(*configFlag)
+	}
+
+	err := viper.ReadInConfig() // Find and read the config file
 
 	if err != nil { // Handle errors reading the config file
 		log.WithError(err).Fatalln("Unable to load config file")
