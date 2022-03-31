@@ -11,3 +11,5 @@ RUN apk add --no-cache git && \
 FROM alpine
 
 COPY --from=builder /src/dlrouter /usr/bin/dlrouter
+
+CMD "/usr/bin/dlrouter"
