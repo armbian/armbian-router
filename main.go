@@ -76,8 +76,6 @@ func main() {
 
 	reloadConfig()
 
-	log.Info("Servers added, checking statuses")
-
 	// Start check loop
 	go servers.checkLoop()
 
@@ -97,6 +95,8 @@ func main() {
 	r.NotFound(redirectHandler)
 
 	go http.ListenAndServe(viper.GetString("bind"), r)
+
+	log.Info("Ready")
 
 	c := make(chan os.Signal)
 
