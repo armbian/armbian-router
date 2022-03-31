@@ -119,7 +119,8 @@ func main() {
 	r.Post("/reload", reloadHandler)
 	r.Get("/dl_map", dlMapHandler)
 	r.Get("/metrics", promhttp.Handler().ServeHTTP)
-	r.HandleFunc("/*", redirectHandler)
+
+	r.NotFound(redirectHandler)
 
 	go http.ListenAndServe(viper.GetString("bind"), r)
 
