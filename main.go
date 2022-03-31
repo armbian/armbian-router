@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -97,7 +97,7 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(RealIPMiddleware)
-	r.Use(middleware.Logger)
+	r.Use(logger.Logger("router", log.StandardLogger()))
 
 	r.HandleFunc("/status", statusHandler)
 	r.HandleFunc("/mirrors", mirrorsHandler)
