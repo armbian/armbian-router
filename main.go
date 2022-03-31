@@ -13,8 +13,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 var (
@@ -116,7 +119,21 @@ func main() {
 	r.Handle("/metrics", promhttp.Handler())
 	r.HandleFunc("/", redirectHandler)
 
-	http.ListenAndServe(viper.GetString("bind"), r)
+	go http.ListenAndServe(viper.GetString("bind"), r)
+
+	c := make(chan os.Signal)
+
+	signal.Notify(c, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGHUP)
+
+	for {
+		sig := <-c
+
+		if sig != syscall.SIGHUP {
+			break
+		}
+
+		reloadMap()
+	}
 }
 
 var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
@@ -178,4 +195,22 @@ func addServer(server string) {
 		"latitude":  city.Location.Latitude,
 		"longitude": city.Location.Longitude,
 	}).Info("Added server")
+}
+
+func reloadMap() {
+	mapFile := viper.GetString("dl_map")
+
+	if mapFile == "" {
+		return
+	}
+
+	log.WithField("file", mapFile).Info("Loading download map")
+
+	newMap, err := loadMap(mapFile)
+
+	if err != nil {
+		return
+	}
+
+	dlMap = newMap
 }

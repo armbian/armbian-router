@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"net"
 	"net/http"
 	"net/url"
@@ -74,22 +72,10 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func reloadHandler(w http.ResponseWriter, r *http.Request) {
-	if mapFile := viper.GetString("dl_map"); mapFile != "" {
-		log.WithField("file", mapFile).Info("Loading download map")
+	reloadMap()
 
-		newMap, err := loadMap(mapFile)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		dlMap = newMap
-
-		return
-	}
-
-	w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 func dlMapHandler(w http.ResponseWriter, r *http.Request) {
