@@ -114,12 +114,12 @@ func main() {
 	r.Use(RealIPMiddleware)
 	r.Use(logger.Logger("router", log.StandardLogger()))
 
-	r.HandleFunc("/status", statusHandler)
-	r.HandleFunc("/mirrors", mirrorsHandler)
-	r.HandleFunc("/reload", reloadHandler)
-	r.HandleFunc("/dl_map", dlMapHandler)
-	r.Handle("/metrics", promhttp.Handler())
-	r.HandleFunc("/", redirectHandler)
+	r.Get("/status", statusHandler)
+	r.Get("/mirrors", mirrorsHandler)
+	r.Post("/reload", reloadHandler)
+	r.Get("/dl_map", dlMapHandler)
+	r.Get("/metrics", promhttp.Handler().ServeHTTP)
+	r.HandleFunc("/*", redirectHandler)
 
 	go http.ListenAndServe(viper.GetString("bind"), r)
 
