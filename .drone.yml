@@ -49,6 +49,8 @@ steps:
       repo: registry.meow.tf/tyler/armbian-router
       registry: registry.meow.tf
     depends_on: [ clone ]
+    when:
+      event: tag
 volumes:
   - name: build
     temp: {}
