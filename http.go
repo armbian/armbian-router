@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 )
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
@@ -80,6 +81,10 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 			downloadsMapped.Inc()
 			redirectPath = path.Join(server.Path, newPath)
 		}
+	}
+
+	if strings.HasSuffix(r.URL.Path, "/") && !strings.HasSuffix(redirectPath, "/") {
+		redirectPath += "/"
 	}
 
 	u := &url.URL{
