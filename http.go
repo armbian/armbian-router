@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jmcvetta/randutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,21 +20,19 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 func legacyMirrorsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	mirrors := make(map[string][]string)
+	mirrorOutput := make(map[string][]string)
 
-	for _, server := range servers {
-		u := &url.URL{
-			Scheme: r.URL.Scheme,
-			Host:   server.Host,
-			Path:   server.Path,
+	for region, mirrors := range mirrorMap {
+		list := make([]string, len(mirrors))
+
+		for i, mirror := range mirrors {
+			list[i] = r.URL.Scheme + "://" + mirror.Host + "/" + strings.TrimLeft(mirror.Path, "/")
 		}
 
-		mirrors[server.Continent] = append(mirrors[server.Continent], u.String())
+		mirrorOutput[region] = list
 	}
 
-	mirrors["default"] = append(mirrors["NA"], mirrors["EU"]...)
-
-	json.NewEncoder(w).Encode(mirrors)
+	json.NewEncoder(w).Encode(mirrorOutput)
 }
 
 func mirrorsHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,11 +60,47 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 		ip = net.ParseIP(overrideIP)
 	}
 
-	server, distance, err := servers.Closest(ip)
+	var server *Server
+	var distance float64
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if strings.HasPrefix(r.URL.Path, "/region") {
+		parts := strings.Split(r.URL.Path, "/")
+
+		// region = parts[2]
+		if mirrors, ok := mirrorMap[parts[2]]; ok {
+			choices := make([]randutil.Choice, len(mirrors))
+
+			for i, item := range mirrors {
+				if !item.Available {
+					continue
+				}
+
+				choices[i] = randutil.Choice{
+					Weight: item.Weight,
+					Item:   item,
+				}
+			}
+
+			choice, err := randutil.WeightedChoice(choices)
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			server = choice.Item.(*Server)
+
+			r.URL.Path = strings.Join(parts[3:], "/")
+		}
+	}
+
+	if server == nil {
+		server, distance, err = servers.Closest(ip)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	scheme := r.URL.Scheme
@@ -102,7 +137,10 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	server.Redirects.Inc()
 	redirectsServed.Inc()
 
-	w.Header().Set("X-Geo-Distance", fmt.Sprintf("%f", distance))
+	if distance > 0 {
+		w.Header().Set("X-Geo-Distance", fmt.Sprintf("%f", distance))
+	}
+
 	w.Header().Set("Location", u.String())
 	w.WriteHeader(http.StatusFound)
 }

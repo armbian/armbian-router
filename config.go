@@ -46,6 +46,17 @@ func reloadConfig() {
 	// Reload server list
 	reloadServers()
 
+	// Create mirror map
+	mirrors := make(map[string][]*Server)
+
+	for _, server := range servers {
+		mirrors[server.Continent] = append(mirrors[server.Continent], server)
+	}
+
+	mirrors["default"] = append(mirrors["NA"], mirrors["EU"]...)
+
+	mirrorMap = mirrors
+
 	// Check top choices size
 	if topChoices > len(servers) {
 		topChoices = len(servers)

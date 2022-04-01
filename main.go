@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	db      *maxminddb.Reader
-	servers ServerList
+	db        *maxminddb.Reader
+	servers   ServerList
+	mirrorMap map[string][]*Server
 
 	dlMap map[string]string
 
@@ -110,6 +111,7 @@ func main() {
 	r.Use(RealIPMiddleware)
 	r.Use(logger.Logger("router", log.StandardLogger()))
 
+	r.Head("/status", statusHandler)
 	r.Get("/status", statusHandler)
 	r.Get("/mirrors", legacyMirrorsHandler)
 	r.Get("/mirrors.json", mirrorsHandler)

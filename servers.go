@@ -160,6 +160,10 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 		choices := make([]randutil.Choice, topChoices)
 
 		for i, item := range c[0:topChoices] {
+			if item.Server == nil {
+				continue
+			}
+
 			choices[i] = randutil.Choice{
 				Weight: item.Server.Weight,
 				Item:   item,
