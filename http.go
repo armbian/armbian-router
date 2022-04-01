@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 )
@@ -50,9 +51,14 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 
 	ip := net.ParseIP(ipStr)
 
-	// TODO: This is temporary to allow testing on private addresses.
-	if ip.IsPrivate() {
-		ip = net.ParseIP("1.1.1.1")
+	if ip.IsLoopback() || ip.IsPrivate() {
+		overrideIP := os.Getenv("OVERRIDE_IP")
+
+		if overrideIP == "" {
+			overrideIP = "1.1.1.1"
+		}
+
+		ip = net.ParseIP(overrideIP)
 	}
 
 	server, distance, err := servers.Closest(ip)

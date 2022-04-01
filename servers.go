@@ -123,19 +123,6 @@ type ComputedDistance struct {
 // DistanceList is a list of Computed Distances with an easy "Choices" func
 type DistanceList []ComputedDistance
 
-func (d DistanceList) Choices() []randutil.Choice {
-	c := make([]randutil.Choice, len(d))
-
-	for i, item := range d {
-		c[i] = randutil.Choice{
-			Weight: item.Server.Weight,
-			Item:   item,
-		}
-	}
-
-	return c
-}
-
 // Closest will use GeoIP on the IP provided and find the closest servers.
 // When we have a list of x servers closest, we can choose a random or weighted one.
 // Return values are the closest server, the distance, and if an error occurred.
@@ -157,18 +144,29 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 				continue
 			}
 
+			distance := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
+
 			c[i] = ComputedDistance{
 				Server:   server,
-				Distance: Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude),
+				Distance: distance,
 			}
 		}
 
 		// Sort by distance
-		sort.Slice(s, func(i int, j int) bool {
+		sort.Slice(c, func(i int, j int) bool {
 			return c[i].Distance < c[j].Distance
 		})
 
-		choiceInterface = c[0:topChoices].Choices()
+		choices := make([]randutil.Choice, topChoices)
+
+		for i, item := range c[0:topChoices] {
+			choices[i] = randutil.Choice{
+				Weight: item.Server.Weight,
+				Item:   item,
+			}
+		}
+
+		choiceInterface = choices
 
 		serverCache.Add(ip.String(), choiceInterface)
 	}
