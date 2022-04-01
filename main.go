@@ -38,18 +38,42 @@ var (
 	topChoices int
 )
 
-// City represents a MaxmindDB city
-type City struct {
+type LocationLookup struct {
 	Location struct {
 		Latitude  float64 `maxminddb:"latitude"`
 		Longitude float64 `maxminddb:"longitude"`
 	} `maxminddb:"location"`
 }
 
+// City represents a MaxmindDB city
+type City struct {
+	Continent struct {
+		Code      string            `maxminddb:"code" json:"code"`
+		GeoNameID uint              `maxminddb:"geoname_id" json:"geoname_id"`
+		Names     map[string]string `maxminddb:"names" json:"names"`
+	} `maxminddb:"continent" json:"continent"`
+	Country struct {
+		GeoNameID uint              `maxminddb:"geoname_id" json:"geoname_id"`
+		IsoCode   string            `maxminddb:"iso_code" json:"iso_code"`
+		Names     map[string]string `maxminddb:"names" json:"names"`
+	} `maxminddb:"country" json:"country"`
+	Location struct {
+		AccuracyRadius uint16  `maxminddb:"accuracy_radius" json:'accuracy_radius'`
+		Latitude       float64 `maxminddb:"latitude" json:"latitude"`
+		Longitude      float64 `maxminddb:"longitude" json:"longitude"`
+	} `maxminddb:"location"`
+	RegisteredCountry struct {
+		GeoNameID uint              `maxminddb:"geoname_id" json:"geoname_id"`
+		IsoCode   string            `maxminddb:"iso_code" json:"iso_code"`
+		Names     map[string]string `maxminddb:"names" json:"names"`
+	} `maxminddb:"registered_country" json:"registered_country"`
+}
+
 type ServerConfig struct {
 	Server    string  `mapstructure:"server" yaml:"server"`
 	Latitude  float64 `mapstructure:"latitude" yaml:"latitude"`
 	Longitude float64 `mapstructure:"longitude" yaml:"longitude"`
+	Continent string  `mapstructure:"continent"`
 	Weight    int     `mapstructure:"weight" yaml:"weight"`
 }
 
@@ -87,9 +111,11 @@ func main() {
 	r.Use(logger.Logger("router", log.StandardLogger()))
 
 	r.Get("/status", statusHandler)
-	r.Get("/mirrors", mirrorsHandler)
+	r.Get("/mirrors", legacyMirrorsHandler)
+	r.Get("/mirrors.json", mirrorsHandler)
 	r.Post("/reload", reloadHandler)
 	r.Get("/dl_map", dlMapHandler)
+	r.Get("/geoip", geoIPHandler)
 	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	r.NotFound(redirectHandler)

@@ -150,36 +150,42 @@ func addServer(server ServerConfig, u *url.URL) *Server {
 		Path:      u.Path,
 		Latitude:  server.Latitude,
 		Longitude: server.Longitude,
+		Continent: server.Continent,
 		Weight:    server.Weight,
 	}
 
+	// Defaults to 10 to allow servers to be set lower for lower priority
 	if s.Weight == 0 {
-		s.Weight = 1
+		s.Weight = 10
+	}
+
+	ips, err := net.LookupIP(u.Host)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":  err,
+			"server": s.Host,
+		}).Warning("Could not resolve address")
+		return nil
+	}
+
+	var city City
+	err = db.Lookup(ips[0], &city)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":  err,
+			"server": s.Host,
+			"ip":     ips[0],
+		}).Warning("Could not geolocate address")
+		return nil
+	}
+
+	if s.Continent == "" {
+		s.Continent = city.Continent.Code
 	}
 
 	if s.Latitude == 0 && s.Longitude == 0 {
-		ips, err := net.LookupIP(u.Host)
-
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":  err,
-				"server": s.Host,
-			}).Warning("Could not resolve address")
-			return nil
-		}
-
-		var city City
-		err = db.Lookup(ips[0], &city)
-
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":  err,
-				"server": s.Host,
-				"ip":     ips[0],
-			}).Warning("Could not geolocate address")
-			return nil
-		}
-
 		s.Latitude = city.Location.Latitude
 		s.Longitude = city.Location.Longitude
 	}

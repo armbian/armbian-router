@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"io"
 	"os"
-	"strings"
 )
 
 func loadMap(file string) (map[string]string, error) {
@@ -33,7 +32,7 @@ func loadMap(file string) (map[string]string, error) {
 			return nil, err
 		}
 
-		m[strings.TrimLeft(row[0], "/")] = strings.TrimLeft(row[1], "/")
+		m[row[0]] = row[1]
 	}
 
 	return m, nil

@@ -1,5 +1,6 @@
 # GeoIP Database Path
 geodb: GeoLite2-City.mmdb
+dl_map: userdata.csv
 
 # LRU Cache Size (in items)
 cacheSize: 1024
@@ -13,25 +14,26 @@ cacheSize: 1024
 servers:
     - server: armbian.12z.eu/apt/
     - server: armbian.chi.auroradev.org/apt/
-      weight: 5
+      weight: 15
       latitude: 41.8879
       longitude: -88.1995
     - server: armbian.hosthatch.com/apt/
     - server: armbian.lv.auroradev.org/apt/
-      weight: 5
+      weight: 15
     - server: armbian.site-meganet.com/apt/
     - server: armbian.systemonachip.net/apt/
     - server: armbian.tnahosting.net/apt/
-      weight: 5
+      weight: 15
     - server: au-mirror.bret.dk/armbian/apt/
     - server: es-mirror.bret.dk/armbian/apt/
     - server: imola.armbian.com/apt/
     - server: mirror.iscas.ac.cn/armbian/
     - server: mirror.sjtu.edu.cn/armbian/
     - server: mirrors.aliyun.com/armbian/
+      continent: AS
     - server: mirrors.bfsu.edu.cn/armbian/
     - server: mirrors.dotsrc.org/armbian-apt/
-      weight: 5
+      weight: 15
     - server: mirrors.netix.net/armbian/apt/
     - server: mirrors.nju.edu.cn/armbian/
     - server: mirrors.sustech.edu.cn/armbian/
@@ -41,3 +43,5 @@ servers:
     - server: sg-mirror.bret.dk/armbian/apt/
     - server: stpete-mirror.armbian.com/apt/
     - server: xogium.performanceservers.nl/apt/
+    - server: github.com/armbian/mirror/releases/download/
+      continent: GITHUB

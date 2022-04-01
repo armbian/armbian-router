@@ -21,13 +21,14 @@ var (
 )
 
 type Server struct {
-	Available bool
-	Host      string
-	Path      string
-	Latitude  float64
-	Longitude float64
-	Weight    int
-	Redirects prometheus.Counter
+	Available bool               `json:"available"`
+	Host      string             `json:"host"`
+	Path      string             `json:"path"`
+	Latitude  float64            `json:"latitude"`
+	Longitude float64            `json:"longitude"`
+	Weight    int                `json:"weight"`
+	Continent string             `json:"continent"`
+	Redirects prometheus.Counter `json:"-"`
 }
 
 func (server *Server) checkStatus() {
@@ -139,46 +140,46 @@ func (d DistanceList) Choices() []randutil.Choice {
 // When we have a list of x servers closest, we can choose a random or weighted one.
 // Return values are the closest server, the distance, and if an error occurred.
 func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
-	i, exists := serverCache.Get(ip.String())
+	choiceInterface, exists := serverCache.Get(ip.String())
 
-	if exists {
-		return i.(ComputedDistance).Server, i.(ComputedDistance).Distance, nil
-	}
+	if !exists {
+		var city LocationLookup
+		err := db.Lookup(ip, &city)
 
-	var city City
-	err := db.Lookup(ip, &city)
-
-	if err != nil {
-		return nil, -1, err
-	}
-
-	c := make(DistanceList, len(s))
-
-	for i, server := range s {
-		if !server.Available {
-			continue
+		if err != nil {
+			return nil, -1, err
 		}
 
-		c[i] = ComputedDistance{
-			Server:   server,
-			Distance: Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude),
+		c := make(DistanceList, len(s))
+
+		for i, server := range s {
+			if !server.Available {
+				continue
+			}
+
+			c[i] = ComputedDistance{
+				Server:   server,
+				Distance: Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude),
+			}
 		}
+
+		// Sort by distance
+		sort.Slice(s, func(i int, j int) bool {
+			return c[i].Distance < c[j].Distance
+		})
+
+		choiceInterface = c[0:topChoices].Choices()
+
+		serverCache.Add(ip.String(), choiceInterface)
 	}
 
-	// Sort by distance
-	sort.Slice(s, func(i int, j int) bool {
-		return c[i].Distance < c[j].Distance
-	})
-
-	choice, err := randutil.WeightedChoice(c[0:topChoices].Choices())
+	choice, err := randutil.WeightedChoice(choiceInterface.([]randutil.Choice))
 
 	if err != nil {
 		return nil, -1, err
 	}
 
 	dist := choice.Item.(ComputedDistance)
-
-	serverCache.Add(ip.String(), dist)
 
 	return dist.Server, dist.Distance, nil
 }

@@ -7,16 +7,35 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strings"
 )
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func legacyMirrorsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	mirrors := make(map[string][]string)
+
+	for _, server := range servers {
+		u := &url.URL{
+			Scheme: r.URL.Scheme,
+			Host:   server.Host,
+			Path:   server.Path,
+		}
+
+		mirrors[server.Continent] = append(mirrors[server.Continent], u.String())
+	}
+
+	mirrors["default"] = append(mirrors["NA"], mirrors["EU"]...)
+
+	json.NewEncoder(w).Encode(mirrors)
 }
 
 func mirrorsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	json.NewEncoder(w).Encode(servers)
 }
 
@@ -51,7 +70,13 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	redirectPath := path.Join(server.Path, r.URL.Path)
 
 	if dlMap != nil {
-		if newPath, exists := dlMap[strings.TrimLeft(r.URL.Path, "/")]; exists {
+		p := r.URL.Path
+
+		if p[0] != '/' {
+			p = "/" + p
+		}
+
+		if newPath, exists := dlMap[p]; exists {
 			downloadsMapped.Inc()
 			redirectPath = path.Join(server.Path, newPath)
 		}
@@ -72,7 +97,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func reloadHandler(w http.ResponseWriter, r *http.Request) {
-	reloadMap()
+	reloadConfig()
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
@@ -87,4 +112,26 @@ func dlMapHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(dlMap)
+}
+
+func geoIPHandler(w http.ResponseWriter, r *http.Request) {
+	ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ip := net.ParseIP(ipStr)
+
+	var city City
+	err = db.Lookup(ip, &city)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(city)
 }
