@@ -17,29 +17,6 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func legacyMirrorsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	mirrorOutput := make(map[string][]string)
-
-	for region, mirrors := range mirrorMap {
-		list := make([]string, len(mirrors))
-
-		for i, mirror := range mirrors {
-			list[i] = r.URL.Scheme + "://" + mirror.Host + "/" + strings.TrimLeft(mirror.Path, "/")
-		}
-
-		mirrorOutput[region] = list
-	}
-
-	json.NewEncoder(w).Encode(mirrorOutput)
-}
-
-func mirrorsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(servers)
-}
-
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
 
@@ -67,7 +44,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(r.URL.Path, "/")
 
 		// region = parts[2]
-		if mirrors, ok := mirrorMap[parts[2]]; ok {
+		if mirrors, ok := regionMap[parts[2]]; ok {
 			choices := make([]randutil.Choice, len(mirrors))
 
 			for i, item := range mirrors {
