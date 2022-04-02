@@ -16,19 +16,20 @@ import (
 
 var (
 	checkClient = &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 20 * time.Second,
 	}
 )
 
 type Server struct {
-	Available bool               `json:"available"`
-	Host      string             `json:"host"`
-	Path      string             `json:"path"`
-	Latitude  float64            `json:"latitude"`
-	Longitude float64            `json:"longitude"`
-	Weight    int                `json:"weight"`
-	Continent string             `json:"continent"`
-	Redirects prometheus.Counter `json:"-"`
+	Available  bool               `json:"available"`
+	Host       string             `json:"host"`
+	Path       string             `json:"path"`
+	Latitude   float64            `json:"latitude"`
+	Longitude  float64            `json:"longitude"`
+	Weight     int                `json:"weight"`
+	Continent  string             `json:"continent"`
+	Redirects  prometheus.Counter `json:"-"`
+	LastChange time.Time          `json:"lastChange"`
 }
 
 func (server *Server) checkStatus() {
@@ -55,6 +56,7 @@ func (server *Server) checkStatus() {
 			}).Info("Server went offline")
 
 			server.Available = false
+			server.LastChange = time.Now()
 		} else {
 			log.WithFields(log.Fields{
 				"server": server.Host,
@@ -72,6 +74,7 @@ func (server *Server) checkStatus() {
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
 		if !server.Available {
 			server.Available = true
+			server.LastChange = time.Now()
 			log.WithFields(responseFields).Info("Server is online")
 		}
 	} else {
@@ -80,6 +83,7 @@ func (server *Server) checkStatus() {
 		if server.Available {
 			log.WithFields(responseFields).Info("Server went offline")
 			server.Available = false
+			server.LastChange = time.Now()
 		}
 	}
 }

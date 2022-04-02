@@ -14,6 +14,8 @@ import (
 )
 
 func reloadConfig() {
+	log.Info("Loading configuration...")
+
 	err := viper.ReadInConfig() // Find and read the config file
 
 	if err != nil { // Handle errors reading the config file
@@ -55,7 +57,15 @@ func reloadConfig() {
 
 	mirrors["default"] = append(mirrors["NA"], mirrors["EU"]...)
 
-	mirrorMap = mirrors
+	regionMap = mirrors
+
+	hosts := make(map[string]*Server)
+
+	for _, server := range servers {
+		hosts[server.Host] = server
+	}
+
+	hostMap = hosts
 
 	// Check top choices size
 	if topChoices > len(servers) {

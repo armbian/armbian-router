@@ -18,11 +18,12 @@ import (
 )
 
 var (
-	db        *maxminddb.Reader
-	servers   ServerList
-	mirrorMap map[string][]*Server
-
-	dlMap map[string]string
+	db         *maxminddb.Reader
+	servers    ServerList
+	regionMap  map[string][]*Server
+	hostMap    map[string]*Server
+	dlMap      map[string]string
+	topChoices int
 
 	redirectsServed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "armbian_router_redirects",
@@ -35,8 +36,6 @@ var (
 	})
 
 	serverCache *lru.Cache
-
-	topChoices int
 )
 
 type LocationLookup struct {
@@ -114,6 +113,7 @@ func main() {
 	r.Head("/status", statusHandler)
 	r.Get("/status", statusHandler)
 	r.Get("/mirrors", legacyMirrorsHandler)
+	r.Get("/mirrors/{server}.svg", mirrorStatusHandler)
 	r.Get("/mirrors.json", mirrorsHandler)
 	r.Post("/reload", reloadHandler)
 	r.Get("/dl_map", dlMapHandler)
