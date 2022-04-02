@@ -112,13 +112,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	redirectPath := path.Join(server.Path, r.URL.Path)
 
 	if dlMap != nil {
-		p := r.URL.Path
-
-		if p[0] != '/' {
-			p = "/" + p
-		}
-
-		if newPath, exists := dlMap[p]; exists {
+		if newPath, exists := dlMap[strings.TrimLeft(r.URL.Path, "/")]; exists {
 			downloadsMapped.Inc()
 			redirectPath = path.Join(server.Path, newPath)
 		}
