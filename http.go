@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jmcvetta/randutil"
+	"github.com/spf13/viper"
 	"net"
 	"net/http"
 	"net/url"
@@ -117,6 +118,20 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func reloadHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+
+	if token == "" || !strings.HasPrefix(token, "Bearer") || !strings.Contains(token, " ") {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	token = token[strings.Index(token, " ")+1:]
+
+	if token != viper.GetString("reloadToken") {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	reloadConfig()
 
 	w.WriteHeader(http.StatusOK)

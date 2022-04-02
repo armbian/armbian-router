@@ -79,14 +79,20 @@ type ServerConfig struct {
 
 var (
 	configFlag = flag.String("config", "", "configuration file path")
+	flagDebug  = flag.Bool("debug", false, "Enable debug logging")
 )
 
 func main() {
 	flag.Parse()
 
+	if *flagDebug {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	viper.SetDefault("bind", ":8080")
 	viper.SetDefault("cacheSize", 1024)
 	viper.SetDefault("topChoices", 3)
+	viper.SetDefault("reloadKey", randSeq(32))
 
 	viper.SetConfigName("dlrouter")        // name of config file (without extension)
 	viper.SetConfigType("yaml")            // REQUIRED if the config file does not have the extension in the name

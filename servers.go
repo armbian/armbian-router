@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime"
 	"sort"
 	"strings"
@@ -33,7 +34,7 @@ type Server struct {
 }
 
 func (server *Server) checkStatus() {
-	req, err := http.NewRequest(http.MethodGet, "https://"+server.Host+"/"+strings.TrimLeft(server.Path, "/"), nil)
+	req, err := http.NewRequest(http.MethodGet, "http://"+server.Host+"/"+strings.TrimLeft(server.Path, "/"), nil)
 
 	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
 
@@ -72,6 +73,35 @@ func (server *Server) checkStatus() {
 	}
 
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
+		if res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound {
+			location := res.Header.Get("Location")
+
+			responseFields["url"] = location
+
+			log.WithFields(responseFields).Debug("Server responded with redirect")
+
+			newUrl, err := url.Parse(location)
+
+			if err != nil {
+				if server.Available {
+					log.WithFields(responseFields).Warning("Server returned invalid url")
+					server.Available = false
+					server.LastChange = time.Now()
+				}
+				return
+			}
+
+			if newUrl.Scheme == "https" {
+				if server.Available {
+					responseFields["url"] = location
+					log.WithFields(responseFields).Warning("Server returned https url for http request")
+					server.Available = false
+					server.LastChange = time.Now()
+				}
+				return
+			}
+		}
+
 		if !server.Available {
 			server.Available = true
 			server.LastChange = time.Now()
@@ -161,9 +191,15 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 			return c[i].Distance < c[j].Distance
 		})
 
-		choices := make([]randutil.Choice, topChoices)
+		choiceCount := topChoices
 
-		for i, item := range c[0:topChoices] {
+		if len(c) < topChoices {
+			choiceCount = len(c)
+		}
+
+		choices := make([]randutil.Choice, choiceCount)
+
+		for i, item := range c[0:choiceCount] {
 			if item.Server == nil {
 				continue
 			}
