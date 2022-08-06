@@ -39,6 +39,9 @@ func reloadConfig() {
 		serverCache.Resize(viper.GetInt("cacheSize"))
 	}
 
+	// Purge the cache to ensure we don't have any invalid servers in it
+	serverCache.Purge()
+
 	// Set top choice count
 	topChoices = viper.GetInt("topChoices")
 
