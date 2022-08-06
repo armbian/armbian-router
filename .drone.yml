@@ -13,7 +13,7 @@ steps:
       - go install github.com/onsi/ginkgo/v2/ginkgo
       - ginkgo .
     environment:
-      CGO_ENABLED: '0''
+      CGO_ENABLED: '0'
   - name: build
     image: tystuyfzand/goc:latest
     volumes:
