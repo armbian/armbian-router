@@ -3,3 +3,4 @@ userdata.csv
 dlrouter-apt.yaml
 *.yaml
 !dlrouter.yaml
+*.exe
