@@ -104,7 +104,9 @@ func main() {
 		viper.SetConfigFile(*configFlag)
 	}
 
-	reloadConfig()
+	if err := reloadConfig(); err != nil {
+		log.WithError(err).Fatalln("Unable to load configuration")
+	}
 
 	// Start check loop
 	go servers.checkLoop()
@@ -143,6 +145,10 @@ func main() {
 			break
 		}
 
-		reloadConfig()
+		err := reloadConfig()
+
+		if err != nil {
+			log.WithError(err).Warning("Did not reload configuration due to error")
+		}
 	}
 }

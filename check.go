@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"net"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -82,7 +83,13 @@ func checkRedirect(locationHeader string) (bool, error) {
 
 // checkTLS checks tls certificates from a host, ensures they're valid, and not expired.
 func checkTLS(server *Server, logFields log.Fields) (bool, error) {
-	conn, err := tls.Dial("tcp", server.Host+":443", nil)
+	host, port, err := net.SplitHostPort(server.Host)
+
+	if port == "" {
+		port = "443"
+	}
+
+	conn, err := tls.Dial("tcp", host+":"+port, checkTLSConfig)
 
 	if err != nil {
 		return false, err

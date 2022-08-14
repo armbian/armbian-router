@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"github.com/jmcvetta/randutil"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -20,12 +21,15 @@ var (
 		},
 	}
 
+	checkTLSConfig *tls.Config = nil
+
 	checks = []serverCheck{
 		checkHttp,
 		checkTLS,
 	}
 )
 
+// Server represents a download server
 type Server struct {
 	Available  bool               `json:"available"`
 	Host       string             `json:"host"`

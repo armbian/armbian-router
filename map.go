@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-func loadMap(file string) (map[string]string, error) {
+// loadMapFile loads a file as a map
+func loadMapFile(file string) (map[string]string, error) {
 	f, err := os.Open(file)
 
 	if err != nil {
@@ -16,6 +17,11 @@ func loadMap(file string) (map[string]string, error) {
 
 	defer f.Close()
 
+	return loadMap(f)
+}
+
+// loadMap loads a pipe separated file of mappings
+func loadMap(f io.Reader) (map[string]string, error) {
 	m := make(map[string]string)
 
 	r := csv.NewReader(f)
