@@ -1,16 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
 	"github.com/jmcvetta/randutil"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"math"
 	"net"
 	"net/http"
-	"net/url"
-	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 )
@@ -18,9 +16,20 @@ import (
 var (
 	checkClient = &http.Client{
 		Timeout: 20 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	checkTLSConfig *tls.Config = nil
+
+	checks = []serverCheck{
+		checkHttp,
+		checkTLS,
 	}
 )
 
+// Server represents a download server
 type Server struct {
 	Available  bool               `json:"available"`
 	Host       string             `json:"host"`
@@ -33,87 +42,45 @@ type Server struct {
 	LastChange time.Time          `json:"lastChange"`
 }
 
+type serverCheck func(server *Server, logFields log.Fields) (bool, error)
+
+// checkStatus runs all status checks against a server
 func (server *Server) checkStatus() {
-	req, err := http.NewRequest(http.MethodGet, "http://"+server.Host+"/"+strings.TrimLeft(server.Path, "/"), nil)
-
-	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
-
-	if err != nil {
-		// This should never happen.
-		log.WithFields(log.Fields{
-			"server": server.Host,
-			"error":  err,
-		}).Warning("Invalid request! This should not happen, please check config.")
-		return
+	logFields := log.Fields{
+		"host": server.Host,
 	}
 
-	res, err := checkClient.Do(req)
+	var res bool
+	var err error
 
-	if err != nil {
+	for _, check := range checks {
+		res, err = check(server, logFields)
+
+		if err != nil {
+			logFields["error"] = err
+		}
+
+		if !res {
+			break
+		}
+	}
+
+	if !res {
 		if server.Available {
-			log.WithFields(log.Fields{
-				"server": server.Host,
-				"error":  err,
-			}).Info("Server went offline")
+			log.WithFields(logFields).Info("Server went offline")
 
 			server.Available = false
 			server.LastChange = time.Now()
 		} else {
-			log.WithFields(log.Fields{
-				"server": server.Host,
-				"error":  err,
-			}).Debug("Server is still offline")
+			log.WithFields(logFields).Debug("Server is still offline")
 		}
+
 		return
-	}
-
-	responseFields := log.Fields{
-		"server":       server.Host,
-		"responseCode": res.StatusCode,
-	}
-
-	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
-		if res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound {
-			location := res.Header.Get("Location")
-
-			responseFields["url"] = location
-
-			log.WithFields(responseFields).Debug("Server responded with redirect")
-
-			newUrl, err := url.Parse(location)
-
-			if err != nil {
-				if server.Available {
-					log.WithFields(responseFields).Warning("Server returned invalid url")
-					server.Available = false
-					server.LastChange = time.Now()
-				}
-				return
-			}
-
-			if newUrl.Scheme == "https" {
-				if server.Available {
-					responseFields["url"] = location
-					log.WithFields(responseFields).Warning("Server returned https url for http request")
-					server.Available = false
-					server.LastChange = time.Now()
-				}
-				return
-			}
-		}
-
+	} else {
 		if !server.Available {
 			server.Available = true
 			server.LastChange = time.Now()
-			log.WithFields(responseFields).Info("Server is online")
-		}
-	} else {
-		log.WithFields(responseFields).Debug("Server status not known")
-
-		if server.Available {
-			log.WithFields(responseFields).Info("Server went offline")
-			server.Available = false
-			server.LastChange = time.Now()
+			log.WithFields(logFields).Info("Server is online")
 		}
 	}
 }
@@ -223,6 +190,13 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 
 	dist := choice.Item.(ComputedDistance)
 
+	if !dist.Server.Available {
+		// Choose a new server and refresh cache
+		serverCache.Remove(ip.String())
+
+		return s.Closest(ip)
+	}
+
 	return dist.Server, dist.Distance, nil
 }
 
@@ -233,7 +207,7 @@ func hsin(theta float64) float64 {
 
 // Distance function returns the distance (in meters) between two points of
 //     a given longitude and latitude relatively accurately (using a spherical
-//     approximation of the Earth) through the Haversin Distance Formula for
+//     approximation of the Earth) through the Haversine Distance Formula for
 //     great arc distance on a sphere with accuracy for small distances
 //
 // point coordinates are supplied in degrees and converted into rad. in the func

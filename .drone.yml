@@ -3,6 +3,18 @@ name: default
 type: docker
 
 steps:
+  - name: test
+    image: golang:alpine
+    volumes:
+      - name: build
+        path: /build
+    commands:
+      - go mod download
+      - go install github.com/onsi/ginkgo/v2/ginkgo
+      - ginkgo --randomize-all --p --cover --coverprofile=cover.out .
+      - go tool cover -func=cover.out
+    environment:
+      CGO_ENABLED: '0'
   - name: build
     image: tystuyfzand/goc:latest
     volumes:
@@ -16,7 +28,7 @@ steps:
     environment:
       GOOS: linux,windows,darwin
       GOARCH: 386,amd64,arm,arm64
-    depends_on: [ clone ]
+    depends_on: [ test ]
   - name: release
     image: plugins/gitea-release
     volumes:
@@ -48,7 +60,7 @@ steps:
         from_secret: docker_password
       repo: registry.meow.tf/tyler/armbian-router
       registry: registry.meow.tf
-    depends_on: [ clone ]
+    depends_on: [ test ]
     when:
       event: tag
 volumes:

@@ -3,6 +3,7 @@ package main
 import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
@@ -13,13 +14,13 @@ import (
 	"sync"
 )
 
-func reloadConfig() {
+func reloadConfig() error {
 	log.Info("Loading configuration...")
 
 	err := viper.ReadInConfig() // Find and read the config file
 
 	if err != nil { // Handle errors reading the config file
-		log.WithError(err).Fatalln("Unable to load config file")
+		return errors.Wrap(err, "Unable to read configuration")
 	}
 
 	// db will never be reloaded.
@@ -28,7 +29,7 @@ func reloadConfig() {
 		db, err = maxminddb.Open(viper.GetString("geodb"))
 
 		if err != nil {
-			log.WithError(err).Fatalln("Unable to open database")
+			return errors.Wrap(err, "Unable to open database")
 		}
 	}
 
@@ -39,14 +40,21 @@ func reloadConfig() {
 		serverCache.Resize(viper.GetInt("cacheSize"))
 	}
 
+	// Purge the cache to ensure we don't have any invalid servers in it
+	serverCache.Purge()
+
 	// Set top choice count
 	topChoices = viper.GetInt("topChoices")
 
 	// Reload map file
-	reloadMap()
+	if err := reloadMap(); err != nil {
+		return errors.Wrap(err, "Unable to load map file")
+	}
 
 	// Reload server list
-	reloadServers()
+	if err := reloadServers(); err != nil {
+		return errors.Wrap(err, "Unable to load servers")
+	}
 
 	// Create mirror map
 	mirrors := make(map[string][]*Server)
@@ -74,11 +82,16 @@ func reloadConfig() {
 
 	// Force check
 	go servers.Check()
+
+	return nil
 }
 
-func reloadServers() {
+func reloadServers() error {
 	var serverList []ServerConfig
-	viper.UnmarshalKey("servers", &serverList)
+
+	if err := viper.UnmarshalKey("servers", &serverList); err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 
@@ -106,7 +119,7 @@ func reloadServers() {
 				"error":  err,
 				"server": server,
 			}).Warning("Server is invalid")
-			return
+			return err
 		}
 
 		hosts[u.Host] = true
@@ -158,6 +171,8 @@ func reloadServers() {
 
 		servers = append(servers[:i], servers[i+1:]...)
 	}
+
+	return nil
 }
 
 var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
@@ -214,20 +229,22 @@ func addServer(server ServerConfig, u *url.URL) *Server {
 	return s
 }
 
-func reloadMap() {
+func reloadMap() error {
 	mapFile := viper.GetString("dl_map")
 
 	if mapFile == "" {
-		return
+		return nil
 	}
 
 	log.WithField("file", mapFile).Info("Loading download map")
 
-	newMap, err := loadMap(mapFile)
+	newMap, err := loadMapFile(mapFile)
 
 	if err != nil {
-		return
+		return err
 	}
 
 	dlMap = newMap
+
+	return nil
 }
