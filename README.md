@@ -5,7 +5,7 @@ This repository contains a redirect service for Armbian downloads, apt, etc.
 
 It uses multiple current technologies and best practices, including:
 
-- Go 1.17/1.18
+- Go 1.19
 - GeoIP + Distance routing
 - Server weighting, pooling (top x servers are served instead of a single one)
 - Health checks (HTTP, TLS)
@@ -52,12 +52,19 @@ cacheSize: 1024
 # server = full url or host+path
 # weight = int
 # optional: latitude, longitude (float)
+# optional: protocols (list/array)
 servers:
   - server: armbian.12z.eu/apt/
   - server: armbian.chi.auroradev.org/apt/
     weight: 15
     latitude: 41.8879
     longitude: -88.1995
+  # Example of a server with additional protocols (rsync)
+  # Useful for defining servers which could be used for rsync sources
+  - server: mirrors.dotsrc.org/armbian-apt/
+    weight: 15
+    protocols:
+      - rsync
 ````
 
 ## API
