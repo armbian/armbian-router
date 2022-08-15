@@ -6,19 +6,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math"
 	"net"
-	"net/http"
 	"sort"
 	"sync"
 	"time"
-)
-
-var (
-	checkClient = &http.Client{
-		Timeout: 20 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
 )
 
 // Server represents a download server

@@ -16,6 +16,7 @@ import (
 
 var (
 	ErrHttpsRedirect = errors.New("unexpected forced https redirect")
+	ErrHttpRedirect  = errors.New("unexpected redirect to insecure url")
 	ErrCertExpired   = errors.New("certificate is expired")
 )
 
@@ -28,7 +29,7 @@ func (r *Redirector) checkHttp(scheme string) ServerCheck {
 // checkHttp checks a URL for validity, and checks redirects
 func (r *Redirector) checkHttpScheme(server *Server, scheme string, logFields log.Fields) (bool, error) {
 	u := &url.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   server.Host,
 		Path:   server.Path,
 	}
@@ -41,7 +42,7 @@ func (r *Redirector) checkHttpScheme(server *Server, scheme string, logFields lo
 		return false, err
 	}
 
-	res, err := checkClient.Do(req)
+	res, err := r.config.checkClient.Do(req)
 
 	if err != nil {
 		return false, err
@@ -102,8 +103,8 @@ func (r *Redirector) checkRedirect(originatingScheme, locationHeader string) (bo
 
 	if newUrl.Scheme == "https" {
 		return false, ErrHttpsRedirect
-	} else if originatingScheme == "https" && newUrl.Scheme == "https" {
-		return false, ErrHttpsRedirect
+	} else if originatingScheme == "https" && newUrl.Scheme == "http" {
+		return false, ErrHttpRedirect
 	}
 
 	return true, nil

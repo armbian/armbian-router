@@ -1,6 +1,7 @@
 package redirector
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
@@ -9,9 +10,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Config struct {
@@ -24,6 +27,27 @@ type Config struct {
 	ServerList  []ServerConfig `mapstructure:"servers"`
 	ReloadFunc  func()
 	RootCAs     *x509.CertPool
+	checkClient *http.Client
+}
+
+// SetRootCAs sets the root ca files, and creates the http client for checks
+// This **MUST** be called before r.checkClient is used.
+func (c *Config) SetRootCAs(cas *x509.CertPool) {
+	c.RootCAs = cas
+
+	t := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs: cas,
+		},
+	}
+
+	c.checkClient = &http.Client{
+		Transport: t,
+		Timeout:   20 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 }
 
 type ProtocolList []string

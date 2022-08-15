@@ -35,6 +35,7 @@ type Redirector struct {
 	topChoices  int
 	serverCache *lru.Cache
 	checks      []ServerCheck
+	checkClient *http.Client
 }
 
 type LocationLookup struct {
