@@ -1,109 +1,149 @@
-package main
+package redirector
 
 import (
+	"crypto/x509"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"net"
 	"net/url"
 	"strings"
 	"sync"
 )
 
-func reloadConfig() error {
-	log.Info("Loading configuration...")
+type Config struct {
+	BindAddress string         `mapstructure:"bind"`
+	GeoDBPath   string         `mapstructure:"geodb"`
+	MapFile     string         `mapstructure:"dl_map"`
+	CacheSize   int            `mapstructure:"cacheSize"`
+	TopChoices  int            `mapstructure:"topChoices"`
+	ReloadToken string         `mapstructure:"reloadToken"`
+	ServerList  []ServerConfig `mapstructure:"servers"`
+	ReloadFunc  func()
+	RootCAs     *x509.CertPool
+}
 
-	err := viper.ReadInConfig() // Find and read the config file
+type ProtocolList []string
 
-	if err != nil { // Handle errors reading the config file
-		return errors.Wrap(err, "Unable to read configuration")
-	}
-
-	// db will never be reloaded.
-	if db == nil {
-		// Load maxmind database
-		db, err = maxminddb.Open(viper.GetString("geodb"))
-
-		if err != nil {
-			return errors.Wrap(err, "Unable to open database")
+func (p ProtocolList) Contains(value string) bool {
+	for _, val := range p {
+		if value == val {
+			return true
 		}
 	}
 
+	return false
+}
+
+func (p ProtocolList) Append(value string) ProtocolList {
+	return append(p, value)
+}
+
+func (p ProtocolList) Remove(value string) ProtocolList {
+	index := -1
+
+	for i, val := range p {
+		if value == val {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		return p
+	}
+
+	p[index] = p[len(p)-1]
+	return p[:len(p)-1]
+}
+
+func (r *Redirector) ReloadConfig() error {
+	log.Info("Loading configuration...")
+
+	var err error
+
+	// Load maxmind database
+	if r.db != nil {
+		err = r.db.Close()
+
+		if err != nil {
+			return errors.Wrap(err, "Unable to close database")
+		}
+	}
+
+	// db can be hot-reloaded if the file changed
+	r.db, err = maxminddb.Open(r.config.GeoDBPath)
+
+	if err != nil {
+		return errors.Wrap(err, "Unable to open database")
+	}
+
 	// Refresh server cache if size changed
-	if serverCache == nil {
-		serverCache, err = lru.New(viper.GetInt("cacheSize"))
+	if r.serverCache == nil {
+		r.serverCache, err = lru.New(r.config.CacheSize)
 	} else {
-		serverCache.Resize(viper.GetInt("cacheSize"))
+		r.serverCache.Resize(r.config.CacheSize)
 	}
 
 	// Purge the cache to ensure we don't have any invalid servers in it
-	serverCache.Purge()
-
-	// Set top choice count
-	topChoices = viper.GetInt("topChoices")
+	r.serverCache.Purge()
 
 	// Reload map file
-	if err := reloadMap(); err != nil {
+	if err := r.reloadMap(); err != nil {
 		return errors.Wrap(err, "Unable to load map file")
 	}
 
 	// Reload server list
-	if err := reloadServers(); err != nil {
+	if err := r.reloadServers(); err != nil {
 		return errors.Wrap(err, "Unable to load servers")
 	}
 
 	// Create mirror map
 	mirrors := make(map[string][]*Server)
 
-	for _, server := range servers {
+	for _, server := range r.servers {
 		mirrors[server.Continent] = append(mirrors[server.Continent], server)
 	}
 
 	mirrors["default"] = append(mirrors["NA"], mirrors["EU"]...)
 
-	regionMap = mirrors
+	r.regionMap = mirrors
 
 	hosts := make(map[string]*Server)
 
-	for _, server := range servers {
+	for _, server := range r.servers {
 		hosts[server.Host] = server
 	}
 
-	hostMap = hosts
+	r.hostMap = hosts
 
 	// Check top choices size
-	if topChoices > len(servers) {
-		topChoices = len(servers)
+	if r.config.TopChoices > len(r.servers) {
+		r.config.TopChoices = len(r.servers)
 	}
 
 	// Force check
-	go servers.Check()
+	go r.servers.Check(r.checks)
 
 	return nil
 }
 
-func reloadServers() error {
-	var serverList []ServerConfig
-
-	if err := viper.UnmarshalKey("servers", &serverList); err != nil {
-		return err
-	}
-
+func (r *Redirector) reloadServers() error {
+	log.WithField("count", len(r.config.ServerList)).Info("Loading servers")
 	var wg sync.WaitGroup
 
 	existing := make(map[string]int)
 
-	for i, server := range servers {
+	for i, server := range r.servers {
 		existing[server.Host] = i
 	}
 
 	hosts := make(map[string]bool)
 
-	for _, server := range serverList {
+	for _, server := range r.config.ServerList {
 		wg.Add(1)
 
 		var prefix string
@@ -133,19 +173,19 @@ func reloadServers() error {
 		go func(i int, server ServerConfig, u *url.URL) {
 			defer wg.Done()
 
-			s := addServer(server, u)
+			s := r.addServer(server, u)
 
 			if _, ok := existing[u.Host]; ok {
-				s.Redirects = servers[i].Redirects
+				s.Redirects = r.servers[i].Redirects
 
-				servers[i] = s
+				r.servers[i] = s
 			} else {
 				s.Redirects = promauto.NewCounter(prometheus.CounterOpts{
 					Name: "armbian_router_redirects_" + metricReplacer.Replace(u.Host),
 					Help: "The number of redirects for server " + u.Host,
 				})
 
-				servers = append(servers, s)
+				r.servers = append(r.servers, s)
 
 				log.WithFields(log.Fields{
 					"server":    u.Host,
@@ -160,16 +200,16 @@ func reloadServers() error {
 	wg.Wait()
 
 	// Remove servers that no longer exist in the config
-	for i := len(servers) - 1; i >= 0; i-- {
-		if _, exists := hosts[servers[i].Host]; exists {
+	for i := len(r.servers) - 1; i >= 0; i-- {
+		if _, exists := hosts[r.servers[i].Host]; exists {
 			continue
 		}
 
 		log.WithFields(log.Fields{
-			"server": servers[i].Host,
+			"server": r.servers[i].Host,
 		}).Info("Removed server")
 
-		servers = append(servers[:i], servers[i+1:]...)
+		r.servers = append(r.servers[:i], r.servers[i+1:]...)
 	}
 
 	return nil
@@ -179,7 +219,7 @@ var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
 
 // addServer takes ServerConfig and constructs a server.
 // This will create duplicate servers, but it will overwrite existing ones when changed.
-func addServer(server ServerConfig, u *url.URL) *Server {
+func (r *Redirector) addServer(server ServerConfig, u *url.URL) *Server {
 	s := &Server{
 		Available: true,
 		Host:      u.Host,
@@ -188,6 +228,15 @@ func addServer(server ServerConfig, u *url.URL) *Server {
 		Longitude: server.Longitude,
 		Continent: server.Continent,
 		Weight:    server.Weight,
+		Protocols: ProtocolList{"http", "https"},
+	}
+
+	if len(server.Protocols) > 0 {
+		for _, proto := range server.Protocols {
+			if !s.Protocols.Contains(proto) {
+				s.Protocols = s.Protocols.Append(proto)
+			}
+		}
 	}
 
 	// Defaults to 10 to allow servers to be set lower for lower priority
@@ -206,7 +255,7 @@ func addServer(server ServerConfig, u *url.URL) *Server {
 	}
 
 	var city City
-	err = db.Lookup(ips[0], &city)
+	err = r.db.Lookup(ips[0], &city)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -229,8 +278,8 @@ func addServer(server ServerConfig, u *url.URL) *Server {
 	return s
 }
 
-func reloadMap() error {
-	mapFile := viper.GetString("dl_map")
+func (r *Redirector) reloadMap() error {
+	mapFile := r.config.MapFile
 
 	if mapFile == "" {
 		return nil
@@ -244,7 +293,7 @@ func reloadMap() error {
 		return err
 	}
 
-	dlMap = newMap
+	r.dlMap = newMap
 
 	return nil
 }

@@ -1,4 +1,4 @@
-package main
+package redirector
 
 import (
 	_ "embed"
@@ -11,16 +11,16 @@ import (
 
 // legacyMirrorsHandler will list the mirrors by region in the legacy format
 // it is preferred to use mirrors.json, but this handler is here for build support
-func legacyMirrorsHandler(w http.ResponseWriter, r *http.Request) {
+func (r *Redirector) legacyMirrorsHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	mirrorOutput := make(map[string][]string)
 
-	for region, mirrors := range regionMap {
+	for region, mirrors := range r.regionMap {
 		list := make([]string, len(mirrors))
 
 		for i, mirror := range mirrors {
-			list[i] = r.URL.Scheme + "://" + mirror.Host + "/" + strings.TrimLeft(mirror.Path, "/")
+			list[i] = req.URL.Scheme + "://" + mirror.Host + "/" + strings.TrimLeft(mirror.Path, "/")
 		}
 
 		mirrorOutput[region] = list
@@ -30,9 +30,9 @@ func legacyMirrorsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // mirrorsHandler is a simple handler that will return the list of servers
-func mirrorsHandler(w http.ResponseWriter, r *http.Request) {
+func (r *Redirector) mirrorsHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(servers)
+	json.NewEncoder(w).Encode(r.servers)
 }
 
 var (
@@ -48,8 +48,8 @@ var (
 
 // mirrorStatusHandler is a fancy svg-returning handler.
 // it is used to display mirror statuses on a config repo of sorts
-func mirrorStatusHandler(w http.ResponseWriter, r *http.Request) {
-	serverHost := chi.URLParam(r, "server")
+func (r *Redirector) mirrorStatusHandler(w http.ResponseWriter, req *http.Request) {
+	serverHost := chi.URLParam(req, "server")
 
 	w.Header().Set("Content-Type", "image/svg+xml;charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=120")
@@ -61,7 +61,7 @@ func mirrorStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	serverHost = strings.Replace(serverHost, "_", ".", -1)
 
-	server, ok := hostMap[serverHost]
+	server, ok := r.hostMap[serverHost]
 
 	if !ok {
 		w.Header().Set("Content-Length", strconv.Itoa(len(statusUnknown)))
@@ -77,7 +77,7 @@ func mirrorStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("ETag", "\""+key+"\"")
 
-	if match := r.Header.Get("If-None-Match"); match != "" {
+	if match := req.Header.Get("If-None-Match"); match != "" {
 		if strings.Trim(match, "\"") == key {
 			w.WriteHeader(http.StatusNotModified)
 			return

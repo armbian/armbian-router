@@ -1,7 +1,6 @@
-package main
+package redirector
 
 import (
-	"crypto/tls"
 	"github.com/jmcvetta/randutil"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -20,13 +19,6 @@ var (
 			return http.ErrUseLastResponse
 		},
 	}
-
-	checkTLSConfig *tls.Config = nil
-
-	checks = []serverCheck{
-		checkHttp,
-		checkTLS,
-	}
 )
 
 // Server represents a download server
@@ -38,14 +30,15 @@ type Server struct {
 	Longitude  float64            `json:"longitude"`
 	Weight     int                `json:"weight"`
 	Continent  string             `json:"continent"`
+	Protocols  ProtocolList       `json:"protocols"`
 	Redirects  prometheus.Counter `json:"-"`
 	LastChange time.Time          `json:"lastChange"`
 }
 
-type serverCheck func(server *Server, logFields log.Fields) (bool, error)
+type ServerCheck func(server *Server, logFields log.Fields) (bool, error)
 
 // checkStatus runs all status checks against a server
-func (server *Server) checkStatus() {
+func (server *Server) checkStatus(checks []ServerCheck) {
 	logFields := log.Fields{
 		"host": server.Host,
 	}
@@ -87,19 +80,19 @@ func (server *Server) checkStatus() {
 
 type ServerList []*Server
 
-func (s ServerList) checkLoop() {
+func (s ServerList) checkLoop(checks []ServerCheck) {
 	t := time.NewTicker(60 * time.Second)
 
 	for {
 		<-t.C
-		s.Check()
+		s.Check(checks)
 	}
 }
 
 // Check will request the index from all servers
 // If a server does not respond in 10 seconds, it is considered offline.
 // This will wait until all checks are complete.
-func (s ServerList) Check() {
+func (s ServerList) Check(checks []ServerCheck) {
 	var wg sync.WaitGroup
 
 	for _, server := range s {
@@ -108,7 +101,7 @@ func (s ServerList) Check() {
 		go func(server *Server) {
 			defer wg.Done()
 
-			server.checkStatus()
+			server.checkStatus(checks)
 		}(server)
 	}
 
@@ -127,12 +120,12 @@ type DistanceList []ComputedDistance
 // Closest will use GeoIP on the IP provided and find the closest servers.
 // When we have a list of x servers closest, we can choose a random or weighted one.
 // Return values are the closest server, the distance, and if an error occurred.
-func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
-	choiceInterface, exists := serverCache.Get(ip.String())
+func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, float64, error) {
+	choiceInterface, exists := r.serverCache.Get(scheme + "_" + ip.String())
 
 	if !exists {
 		var city LocationLookup
-		err := db.Lookup(ip, &city)
+		err := r.db.Lookup(ip, &city)
 
 		if err != nil {
 			return nil, -1, err
@@ -141,7 +134,7 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 		c := make(DistanceList, len(s))
 
 		for i, server := range s {
-			if !server.Available {
+			if !server.Available || !server.Protocols.Contains(scheme) {
 				continue
 			}
 
@@ -158,9 +151,9 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 			return c[i].Distance < c[j].Distance
 		})
 
-		choiceCount := topChoices
+		choiceCount := r.config.TopChoices
 
-		if len(c) < topChoices {
+		if len(c) < r.config.TopChoices {
 			choiceCount = len(c)
 		}
 
@@ -179,7 +172,7 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 
 		choiceInterface = choices
 
-		serverCache.Add(ip.String(), choiceInterface)
+		r.serverCache.Add(scheme+"_"+ip.String(), choiceInterface)
 	}
 
 	choice, err := randutil.WeightedChoice(choiceInterface.([]randutil.Choice))
@@ -192,9 +185,9 @@ func (s ServerList) Closest(ip net.IP) (*Server, float64, error) {
 
 	if !dist.Server.Available {
 		// Choose a new server and refresh cache
-		serverCache.Remove(ip.String())
+		r.serverCache.Remove(scheme + "_" + ip.String())
 
-		return s.Closest(ip)
+		return s.Closest(r, scheme, ip)
 	}
 
 	return dist.Server, dist.Distance, nil
@@ -206,9 +199,10 @@ func hsin(theta float64) float64 {
 }
 
 // Distance function returns the distance (in meters) between two points of
-//     a given longitude and latitude relatively accurately (using a spherical
-//     approximation of the Earth) through the Haversine Distance Formula for
-//     great arc distance on a sphere with accuracy for small distances
+//
+//	a given longitude and latitude relatively accurately (using a spherical
+//	approximation of the Earth) through the Haversine Distance Formula for
+//	great arc distance on a sphere with accuracy for small distances
 //
 // point coordinates are supplied in degrees and converted into rad. in the func
 //

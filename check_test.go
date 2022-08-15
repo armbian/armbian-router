@@ -1,4 +1,4 @@
-package main
+package redirector
 
 import (
 	"crypto/rand"
@@ -58,11 +58,15 @@ var _ = Describe("Check suite", func() {
 		httpServer *httptest.Server
 		server     *Server
 		handler    http.HandlerFunc
+		r          *Redirector
 	)
 	BeforeEach(func() {
 		httpServer = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handler(w, r)
 		}))
+		r = New(&Config{
+			RootCAs: x509.NewCertPool(),
+		})
 	})
 	AfterEach(func() {
 		httpServer.Close()
@@ -89,7 +93,7 @@ var _ = Describe("Check suite", func() {
 				w.WriteHeader(http.StatusOK)
 			}
 
-			res, err := checkHttp(server, log.Fields{})
+			res, err := r.checkHttpScheme(server, "http", log.Fields{})
 
 			Expect(res).To(BeTrue())
 			Expect(err).To(BeNil())
@@ -100,7 +104,7 @@ var _ = Describe("Check suite", func() {
 				w.WriteHeader(http.StatusMovedPermanently)
 			}
 
-			res, err := checkHttp(server, log.Fields{})
+			res, err := r.checkHttpScheme(server, "http", log.Fields{})
 
 			Expect(res).To(BeFalse())
 			Expect(err).To(Equal(ErrHttpsRedirect))
@@ -141,7 +145,7 @@ var _ = Describe("Check suite", func() {
 				setupCerts(time.Now(), time.Now().Add(24*time.Hour))
 			})
 			It("Should fail due to invalid ca", func() {
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
@@ -151,20 +155,15 @@ var _ = Describe("Check suite", func() {
 
 				pool.AddCert(x509Cert)
 
-				checkTLSConfig = &tls.Config{RootCAs: pool}
+				r.config.RootCAs = pool
 
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
-
-				checkTLSConfig = nil
 			})
 		})
 		Context("Expiration tests", func() {
-			AfterEach(func() {
-				checkTLSConfig = nil
-			})
 			It("Should fail due to not yet valid certificate", func() {
 				setupCerts(time.Now().Add(5*time.Hour), time.Now().Add(10*time.Hour))
 
@@ -173,10 +172,10 @@ var _ = Describe("Check suite", func() {
 
 				pool.AddCert(x509Cert)
 
-				checkTLSConfig = &tls.Config{RootCAs: pool}
+				r.config.RootCAs = pool
 
 				// Check TLS
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
@@ -189,10 +188,10 @@ var _ = Describe("Check suite", func() {
 
 				pool.AddCert(x509Cert)
 
-				checkTLSConfig = &tls.Config{RootCAs: pool}
+				r.config.RootCAs = pool
 
 				// Check TLS
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())

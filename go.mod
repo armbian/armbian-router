@@ -1,10 +1,11 @@
-module meow.tf/armbian-router
+module github.com/armbian/redirector
 
-go 1.17
+go 1.19
 
 require (
 	github.com/chi-middleware/logrus-logger v0.2.0
 	github.com/go-chi/chi/v5 v5.0.7
+	github.com/gwatts/rootcerts v0.0.0-20220501184621-6eac2dff0b8d
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff
 	github.com/onsi/ginkgo/v2 v2.1.4
