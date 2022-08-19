@@ -167,6 +167,8 @@ func (r *Redirector) reloadServers() error {
 
 	hosts := make(map[string]bool)
 
+	var hostsLock sync.Mutex
+
 	for _, server := range r.config.ServerList {
 		wg.Add(1)
 
@@ -186,8 +188,6 @@ func (r *Redirector) reloadServers() error {
 			return err
 		}
 
-		hosts[u.Host] = true
-
 		i := -1
 
 		if v, exists := existing[u.Host]; exists {
@@ -203,6 +203,10 @@ func (r *Redirector) reloadServers() error {
 				log.WithError(err).Warning("Unable to add server")
 				return
 			}
+
+			hostsLock.Lock()
+			hosts[u.Host] = true
+			hostsLock.Unlock()
 
 			if _, ok := existing[u.Host]; ok {
 				s.Redirects = r.servers[i].Redirects
