@@ -197,7 +197,12 @@ func (r *Redirector) reloadServers() error {
 		go func(i int, server ServerConfig, u *url.URL) {
 			defer wg.Done()
 
-			s := r.addServer(server, u)
+			s, err := r.addServer(server, u)
+
+			if err != nil {
+				log.WithError(err).Warning("Unable to add server")
+				return
+			}
 
 			if _, ok := existing[u.Host]; ok {
 				s.Redirects = r.servers[i].Redirects
@@ -243,7 +248,7 @@ var metricReplacer = strings.NewReplacer(".", "_", "-", "_")
 
 // addServer takes ServerConfig and constructs a server.
 // This will create duplicate servers, but it will overwrite existing ones when changed.
-func (r *Redirector) addServer(server ServerConfig, u *url.URL) *Server {
+func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error) {
 	s := &Server{
 		Available: true,
 		Host:      u.Host,
@@ -275,7 +280,7 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) *Server {
 			"error":  err,
 			"server": s.Host,
 		}).Warning("Could not resolve address")
-		return nil
+		return nil, err
 	}
 
 	var city City
@@ -287,7 +292,7 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) *Server {
 			"server": s.Host,
 			"ip":     ips[0],
 		}).Warning("Could not geolocate address")
-		return nil
+		return nil, err
 	}
 
 	if s.Continent == "" {
@@ -299,7 +304,7 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) *Server {
 		s.Longitude = city.Location.Longitude
 	}
 
-	return s
+	return s, nil
 }
 
 func (r *Redirector) reloadMap() error {
