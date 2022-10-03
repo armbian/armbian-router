@@ -62,12 +62,12 @@ func (server *Server) checkStatus(checks []ServerCheck) {
 		}
 
 		return
-	} else {
-		if !server.Available {
-			server.Available = true
-			server.LastChange = time.Now()
-			log.WithFields(logFields).Info("Server is online")
-		}
+	}
+
+	if !server.Available {
+		server.Available = true
+		server.LastChange = time.Now()
+		log.WithFields(logFields).Info("Server is online")
 	}
 }
 
