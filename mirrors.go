@@ -1,6 +1,7 @@
 package redirector
 
 import (
+	// embed is a blank import for Go's embedding, used for image files.
 	_ "embed"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"

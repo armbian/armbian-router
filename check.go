@@ -15,19 +15,27 @@ import (
 )
 
 var (
-	ErrHttpsRedirect = errors.New("unexpected forced https redirect")
-	ErrHttpRedirect  = errors.New("unexpected redirect to insecure url")
-	ErrCertExpired   = errors.New("certificate is expired")
+	// ErrHTTPSRedirect is an error thrown when the webserver returns
+	// an https redirect for an http url.
+	ErrHTTPSRedirect = errors.New("unexpected forced https redirect")
+
+	// ErrHTTPRedirect is an error thrown when the webserver returns
+	// a redirect to a non-https url from an https request.
+	ErrHTTPRedirect = errors.New("unexpected redirect to insecure url")
+
+	// ErrCertExpired is a fatal error thrown when the webserver's
+	// certificate is expired.
+	ErrCertExpired = errors.New("certificate is expired")
 )
 
-func (r *Redirector) checkHttp(scheme string) ServerCheck {
+func (r *Redirector) checkHTTP(scheme string) ServerCheck {
 	return func(server *Server, logFields log.Fields) (bool, error) {
-		return r.checkHttpScheme(server, scheme, logFields)
+		return r.checkHTTPScheme(server, scheme, logFields)
 	}
 }
 
-// checkHttp checks a URL for validity, and checks redirects
-func (r *Redirector) checkHttpScheme(server *Server, scheme string, logFields log.Fields) (bool, error) {
+// checkHTTPScheme checks a URL for validity, and checks redirects
+func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields log.Fields) (bool, error) {
 	u := &url.URL{
 		Scheme: scheme,
 		Host:   server.Host,
@@ -82,7 +90,7 @@ func (r *Redirector) checkHttpScheme(server *Server, scheme string, logFields lo
 }
 
 func (r *Redirector) checkProtocol(server *Server, scheme string) {
-	res, err := r.checkHttpScheme(server, scheme, log.Fields{})
+	res, err := r.checkHTTPScheme(server, scheme, log.Fields{})
 
 	if !res || err != nil {
 		return
@@ -95,16 +103,16 @@ func (r *Redirector) checkProtocol(server *Server, scheme string) {
 
 // checkRedirect parses a location header response and checks the scheme
 func (r *Redirector) checkRedirect(originatingScheme, locationHeader string) (bool, error) {
-	newUrl, err := url.Parse(locationHeader)
+	newURL, err := url.Parse(locationHeader)
 
 	if err != nil {
 		return false, err
 	}
 
-	if newUrl.Scheme == "https" {
-		return false, ErrHttpsRedirect
-	} else if originatingScheme == "https" && newUrl.Scheme == "http" {
-		return false, ErrHttpRedirect
+	if newURL.Scheme == "https" {
+		return false, ErrHTTPSRedirect
+	} else if originatingScheme == "https" && newURL.Scheme == "http" {
+		return false, ErrHTTPRedirect
 	}
 
 	return true, nil

@@ -27,6 +27,7 @@ type Server struct {
 	LastChange time.Time          `json:"lastChange"`
 }
 
+// ServerCheck is a check function which can return information about a status.
 type ServerCheck func(server *Server, logFields log.Fields) (bool, error)
 
 // checkStatus runs all status checks against a server
@@ -70,8 +71,12 @@ func (server *Server) checkStatus(checks []ServerCheck) {
 	}
 }
 
+// ServerList is a wrapper for a Server slice.
+// It implements features like server checks.
 type ServerList []*Server
 
+// checkLoop is a loop function which checks server statuses
+// every 60 seconds.
 func (s ServerList) checkLoop(checks []ServerCheck) {
 	t := time.NewTicker(60 * time.Second)
 

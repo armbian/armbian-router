@@ -25,6 +25,7 @@ var (
 	})
 )
 
+// Redirector is our application instance.
 type Redirector struct {
 	config      *Config
 	db          *maxminddb.Reader
@@ -39,6 +40,8 @@ type Redirector struct {
 	checkClient *http.Client
 }
 
+// LocationLookup is a specific GeoIP lookup on the maxminddb side,
+// used for finding the closest servers.
 type LocationLookup struct {
 	Location struct {
 		Latitude  float64 `maxminddb:"latitude"`
@@ -46,7 +49,8 @@ type LocationLookup struct {
 	} `maxminddb:"location"`
 }
 
-// City represents a MaxmindDB city
+// City represents a MaxmindDB city, used only when loading servers,
+// or returning a GeoIP response.
 type City struct {
 	Continent struct {
 		Code      string            `maxminddb:"code" json:"code"`
@@ -76,6 +80,8 @@ type ASN struct {
 	AutonomousSystemOrganization string `maxminddb:"autonomous_system_organization"`
 }
 
+// ServerConfig is a configuration struct holding basic server configuration.
+// This is used for initial loading of server information before parsing into Server.
 type ServerConfig struct {
 	Server    string   `mapstructure:"server" yaml:"server"`
 	Latitude  float64  `mapstructure:"latitude" yaml:"latitude"`
@@ -92,13 +98,15 @@ func New(config *Config) *Redirector {
 	}
 
 	r.checks = []ServerCheck{
-		r.checkHttp("http"),
+		r.checkHTTP("http"),
 		r.checkTLS,
 	}
 
 	return r
 }
 
+// Start registers the routes, loggers, and server checks,
+// then returns the http.Handler.
 func (r *Redirector) Start() http.Handler {
 	if err := r.ReloadConfig(); err != nil {
 		log.WithError(err).Fatalln("Unable to load configuration")

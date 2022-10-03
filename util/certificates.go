@@ -11,6 +11,7 @@ const (
 	defaultDownloadURL = "https://github.com/mozilla/gecko-dev/blob/master/security/nss/lib/ckfw/builtins/certdata.txt?raw=true"
 )
 
+// LoadCACerts loads the certdata from Mozilla and parses it into a CertPool.
 func LoadCACerts() (*x509.CertPool, error) {
 	res, err := http.Get(defaultDownloadURL)
 

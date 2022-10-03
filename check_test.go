@@ -92,7 +92,7 @@ var _ = Describe("Check suite", func() {
 				w.WriteHeader(http.StatusOK)
 			}
 
-			res, err := r.checkHttpScheme(server, "http", log.Fields{})
+			res, err := r.checkHTTPScheme(server, "http", log.Fields{})
 
 			Expect(res).To(BeTrue())
 			Expect(err).To(BeNil())
@@ -146,11 +146,11 @@ var _ = Describe("Check suite", func() {
 
 				logFields := log.Fields{}
 
-				res, err := r.checkHttpScheme(server, "https", logFields)
+				res, err := r.checkHTTPScheme(server, "https", logFields)
 
 				Expect(logFields["url"]).ToNot(BeEmpty())
 				Expect(logFields["url"]).ToNot(Equal(httpServer.URL))
-				Expect(err).To(Equal(ErrHttpRedirect))
+				Expect(err).To(Equal(ErrHTTPRedirect))
 				Expect(res).To(BeFalse())
 			})
 		})

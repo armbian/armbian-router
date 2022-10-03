@@ -17,17 +17,39 @@ import (
 	"time"
 )
 
+// Config represents our application's configuration.
 type Config struct {
-	BindAddress string         `mapstructure:"bind"`
-	GeoDBPath   string         `mapstructure:"geodb"`
-	ASNDBPath   string         `mapstructure:"asndb"`
-	MapFile     string         `mapstructure:"dl_map"`
-	CacheSize   int            `mapstructure:"cacheSize"`
-	TopChoices  int            `mapstructure:"topChoices"`
-	ReloadToken string         `mapstructure:"reloadToken"`
-	ServerList  []ServerConfig `mapstructure:"servers"`
-	ReloadFunc  func()
-	RootCAs     *x509.CertPool
+	// BindAddress is the address to bind our webserver to.
+	BindAddress string `mapstructure:"bind"`
+
+	// GeoDBPath is the path to the MaxMind GeoLite2 City DB.
+	GeoDBPath string `mapstructure:"geodb"`
+
+	// ASNDBPath is the path to the GeoLite2 ASN DB.
+	ASNDBPath string `mapstructure:"asndb"`
+
+	// MapFile is a file used to map download urls via redirect.
+	MapFile string `mapstructure:"dl_map"`
+
+	// CacheSize is the number of items to keep in the LRU cache.
+	CacheSize int `mapstructure:"cacheSize"`
+
+	// TopChoices is the number of servers to use in a rotation.
+	// With the default being 3, the top 3 servers will be rotated based on weight.
+	TopChoices int `mapstructure:"topChoices"`
+
+	// ReloadToken is a secret token used for web-based reload.
+	ReloadToken string `mapstructure:"reloadToken"`
+
+	// ServerList is a list of ServerConfig structs, which gets parsed into servers.
+	ServerList []ServerConfig `mapstructure:"servers"`
+
+	// ReloadFunc is called when a reload is done via http api.
+	ReloadFunc func()
+
+	// RootCAs is a list of CA certificates, which we parse from Mozilla directly.
+	RootCAs *x509.CertPool
+
 	checkClient *http.Client
 }
 
@@ -51,8 +73,11 @@ func (c *Config) SetRootCAs(cas *x509.CertPool) {
 	}
 }
 
+// ASNList is a list of Autonomous System Numbers (in int)
+// It can be used to include or exclude specific ASNs from requests.
 type ASNList []uint
 
+// Contains checks if an ASN is in the list.
 func (a ASNList) Contains(value uint) bool {
 	for _, val := range a {
 		if value == val {
@@ -63,8 +88,10 @@ func (a ASNList) Contains(value uint) bool {
 	return false
 }
 
+// ProtocolList is a list of supported protocols.
 type ProtocolList []string
 
+// Contains checks if the specified protocol exists in the list.
 func (p ProtocolList) Contains(value string) bool {
 	for _, val := range p {
 		if value == val {
@@ -75,10 +102,12 @@ func (p ProtocolList) Contains(value string) bool {
 	return false
 }
 
+// Append adds a supported protocol to the list.
 func (p ProtocolList) Append(value string) ProtocolList {
 	return append(p, value)
 }
 
+// Remove a specific protocol from the list.
 func (p ProtocolList) Remove(value string) ProtocolList {
 	index := -1
 
@@ -97,6 +126,7 @@ func (p ProtocolList) Remove(value string) ProtocolList {
 	return p[:len(p)-1]
 }
 
+// ReloadConfig is called to reload the server's configuration.
 func (r *Redirector) ReloadConfig() error {
 	log.Info("Loading configuration...")
 
