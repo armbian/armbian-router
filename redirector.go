@@ -28,6 +28,7 @@ var (
 type Redirector struct {
 	config      *Config
 	db          *maxminddb.Reader
+	asnDB       *maxminddb.Reader
 	servers     ServerList
 	regionMap   map[string][]*Server
 	hostMap     map[string]*Server
@@ -67,6 +68,12 @@ type City struct {
 		IsoCode   string            `maxminddb:"iso_code" json:"iso_code"`
 		Names     map[string]string `maxminddb:"names" json:"names"`
 	} `maxminddb:"registered_country" json:"registered_country"`
+}
+
+// The ASN struct corresponds to the data in the GeoLite2 ASN database.
+type ASN struct {
+	AutonomousSystemNumber       uint   `maxminddb:"autonomous_system_number"`
+	AutonomousSystemOrganization string `maxminddb:"autonomous_system_organization"`
 }
 
 type ServerConfig struct {

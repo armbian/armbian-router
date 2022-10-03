@@ -1,5 +1,6 @@
 # GeoIP Database Path
 geodb: GeoLite2-City.mmdb
+asndb: GeoLite2-ASN.mmdb
 dl_map: userdata.csv
 
 # LRU Cache Size (in items)

@@ -21,6 +21,8 @@ type Server struct {
 	Weight     int                `json:"weight"`
 	Continent  string             `json:"continent"`
 	Protocols  ProtocolList       `json:"protocols"`
+	IncludeASN ASNList            `json:"includeASN"`
+	ExcludeASN ASNList            `json:"excludeASN"`
 	Redirects  prometheus.Counter `json:"-"`
 	LastChange time.Time          `json:"lastChange"`
 }
@@ -121,10 +123,26 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 			return nil, -1, err
 		}
 
+		var asn ASN
+		hasASN := false
+
+		if r.asnDB != nil {
+			err = r.asnDB.Lookup(ip, &asn)
+
+			if err != nil {
+				return nil, -1, err
+			}
+
+			hasASN = true
+		}
+
 		c := make(DistanceList, len(s))
 
 		for i, server := range s {
-			if !server.Available || !server.Protocols.Contains(scheme) {
+			if !server.Available ||
+				!server.Protocols.Contains(scheme) ||
+				len(server.IncludeASN) > 0 && hasASN && !server.IncludeASN.Contains(asn.AutonomousSystemNumber) ||
+				len(server.ExcludeASN) > 0 && hasASN && server.ExcludeASN.Contains(asn.AutonomousSystemNumber) {
 				continue
 			}
 

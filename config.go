@@ -20,6 +20,7 @@ import (
 type Config struct {
 	BindAddress string         `mapstructure:"bind"`
 	GeoDBPath   string         `mapstructure:"geodb"`
+	ASNDBPath   string         `mapstructure:"asndb"`
 	MapFile     string         `mapstructure:"dl_map"`
 	CacheSize   int            `mapstructure:"cacheSize"`
 	TopChoices  int            `mapstructure:"topChoices"`
@@ -48,6 +49,18 @@ func (c *Config) SetRootCAs(cas *x509.CertPool) {
 			return http.ErrUseLastResponse
 		},
 	}
+}
+
+type ASNList []uint
+
+func (a ASNList) Contains(value uint) bool {
+	for _, val := range a {
+		if value == val {
+			return true
+		}
+	}
+
+	return false
 }
 
 type ProtocolList []string
@@ -98,11 +111,27 @@ func (r *Redirector) ReloadConfig() error {
 		}
 	}
 
+	if r.asnDB != nil {
+		err = r.asnDB.Close()
+
+		if err != nil {
+			return errors.Wrap(err, "Unable to close asn database")
+		}
+	}
+
 	// db can be hot-reloaded if the file changed
 	r.db, err = maxminddb.Open(r.config.GeoDBPath)
 
 	if err != nil {
 		return errors.Wrap(err, "Unable to open database")
+	}
+
+	if r.config.ASNDBPath != "" {
+		r.asnDB, err = maxminddb.Open(r.config.ASNDBPath)
+
+		if err != nil {
+			return errors.Wrap(err, "Unable to open asn database")
+		}
 	}
 
 	// Refresh server cache if size changed
