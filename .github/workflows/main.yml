@@ -32,7 +32,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.18.0' # The Go version to download (if necessary) and use.
+          go-version: '^1.18' # The Go version to download (if necessary) and use.
 
       # Install all the dependencies
       - name: Install dependencies
@@ -40,10 +40,6 @@ jobs:
           go version
           go get -u golang.org/x/lint/golint
           go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
-
-      # Run build of the application
-      - name: Run build
-        run: go build .
 
       # Run vet & lint on the code
       - name: Run vet & lint
@@ -56,6 +52,10 @@ jobs:
         run: |
           ginkgo --randomize-all --p --cover --coverprofile=cover.out .
           go tool cover -func=cover.out
+
+      # Run build of the application
+      - name: Run build
+        run: go build .
 
   # The "deploy" workflow
   deploy:

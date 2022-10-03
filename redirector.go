@@ -59,7 +59,7 @@ type City struct {
 		Names     map[string]string `maxminddb:"names" json:"names"`
 	} `maxminddb:"country" json:"country"`
 	Location struct {
-		AccuracyRadius uint16  `maxminddb:"accuracy_radius" json:'accuracy_radius'`
+		AccuracyRadius uint16  `maxminddb:"accuracy_radius" json:"accuracy_radius"`
 		Latitude       float64 `maxminddb:"latitude" json:"latitude"`
 		Longitude      float64 `maxminddb:"longitude" json:"longitude"`
 	} `maxminddb:"location"`
