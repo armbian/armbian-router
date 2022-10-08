@@ -53,11 +53,14 @@ jobs:
           ginkgo --randomize-all --p --cover --coverprofile=cover.out .
           go tool cover -func=cover.out
 
+      # Install build tool
+      - name: Install build tool
+        run: go install github.com/tystuyfzand/goc@latest
+
       # Run build of the application
       - name: Run build
         run: |
           mkdir build/
-          go install github.com/tystuyfzand/goc@latest
           goc -o build/dlrouter
         env:
           GOOS: linux,windows,darwin,openbsd,freebsd
