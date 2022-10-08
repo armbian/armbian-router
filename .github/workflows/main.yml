@@ -55,7 +55,20 @@ jobs:
 
       # Run build of the application
       - name: Run build
-        run: go build .
+        run: |
+          mkdir -p /build
+          go install github.com/tystuyfzand/goc@latest
+          goc -o /build/dlrouter
+        env:
+          GOOS: linux,windows,darwin,openbsd,freebsd
+          GOARCH: 386,amd64,arm,arm64
+
+      # Upload artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: /build
 
   # The "deploy" workflow
   deploy:
