@@ -61,7 +61,7 @@ jobs:
       - name: Run build
         run: |
           mkdir build/
-          goc -o build/dlrouter
+          goc -o build/dlrouter cmd/main.go
         env:
           GOOS: linux,windows,darwin,openbsd,freebsd
           GOARCH: 386,amd64,arm,arm64
