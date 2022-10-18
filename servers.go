@@ -21,8 +21,8 @@ type Server struct {
 	Weight     int                `json:"weight"`
 	Continent  string             `json:"continent"`
 	Protocols  ProtocolList       `json:"protocols"`
-	IncludeASN ASNList            `json:"includeASN"`
-	ExcludeASN ASNList            `json:"excludeASN"`
+	IncludeASN ASNList            `json:"includeASN,omitempty"`
+	ExcludeASN ASNList            `json:"excludeASN,omitempty"`
 	Redirects  prometheus.Counter `json:"-"`
 	LastChange time.Time          `json:"lastChange"`
 }
@@ -125,6 +125,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 		err := r.db.Lookup(ip, &city)
 
 		if err != nil {
+			log.WithError(err).Warning("Unable to lookup location information")
 			return nil, -1, err
 		}
 
@@ -135,28 +136,30 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 			err = r.asnDB.Lookup(ip, &asn)
 
 			if err != nil {
+				log.WithError(err).Warning("Unable to load ASN information")
 				return nil, -1, err
 			}
 
 			hasASN = true
 		}
 
-		c := make(DistanceList, len(s))
+		c := make(DistanceList, 0)
 
-		for i, server := range s {
+		for _, server := range s {
 			if !server.Available ||
 				!server.Protocols.Contains(scheme) ||
 				len(server.IncludeASN) > 0 && hasASN && !server.IncludeASN.Contains(asn.AutonomousSystemNumber) ||
 				len(server.ExcludeASN) > 0 && hasASN && server.ExcludeASN.Contains(asn.AutonomousSystemNumber) {
+				log.WithField("host", server.Host).WithField("proto", scheme).Debug("Skipping server due to protocol not containing supported protocol")
 				continue
 			}
 
 			distance := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
 
-			c[i] = ComputedDistance{
+			c = append(c, ComputedDistance{
 				Server:   server,
 				Distance: distance,
-			}
+			})
 		}
 
 		// Sort by distance
@@ -170,13 +173,11 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 			choiceCount = len(c)
 		}
 
+		log.WithFields(log.Fields{"count": len(c)}).Debug("Picking from top choices")
+
 		choices := make([]randutil.Choice, choiceCount)
 
 		for i, item := range c[0:choiceCount] {
-			if item.Server == nil {
-				continue
-			}
-
 			choices[i] = randutil.Choice{
 				Weight: item.Server.Weight,
 				Item:   item,
@@ -191,6 +192,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 	choice, err := randutil.WeightedChoice(choiceInterface.([]randutil.Choice))
 
 	if err != nil {
+		log.WithError(err).Warning("Unable to choose a weighted choice")
 		return nil, -1, err
 	}
 

@@ -58,8 +58,8 @@ func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields lo
 
 	logFields["responseCode"] = res.StatusCode
 
-	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
-		if res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound {
+	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusPermanentRedirect || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
+		if res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusPermanentRedirect {
 			location := res.Header.Get("Location")
 
 			logFields["url"] = location
@@ -137,7 +137,7 @@ func (r *Redirector) checkTLS(server *Server, logFields log.Fields) (bool, error
 		"server": server.Host,
 		"host":   host,
 		"port":   port,
-	}).Info("Checking TLS server")
+	}).Debug("Checking TLS server")
 
 	if port == "" {
 		port = "443"

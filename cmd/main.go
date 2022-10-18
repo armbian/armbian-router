@@ -74,7 +74,7 @@ func main() {
 			}
 		}
 
-		config.RootCAs = certs
+		config.SetRootCAs(certs)
 	}
 
 	config.ReloadFunc = func() {

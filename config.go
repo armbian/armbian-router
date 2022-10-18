@@ -204,7 +204,9 @@ func (r *Redirector) ReloadConfig() error {
 	r.hostMap = hosts
 
 	// Check top choices size
-	if r.config.TopChoices > len(r.servers) {
+	if r.config.TopChoices == 0 {
+		r.config.TopChoices = 3
+	} else if r.config.TopChoices > len(r.servers) {
 		r.config.TopChoices = len(r.servers)
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jmcvetta/randutil"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,6 +29,7 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 	ipStr, _, err := net.SplitHostPort(req.RemoteAddr)
 
 	if err != nil {
+		log.WithFields(log.Fields{"error": err, "remote": req.RemoteAddr}).Warning("Unable to parse host/port from request")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -70,6 +72,7 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 			choice, err := randutil.WeightedChoice(choices)
 
 			if err != nil {
+				log.WithError(err).Warning("Unable to find a weighted choice for region")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -92,6 +95,7 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 		server, distance, err = r.servers.Closest(r, scheme, ip)
 
 		if err != nil {
+			log.WithError(err).Warning("Unable to find closest server")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
