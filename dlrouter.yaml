@@ -1,5 +1,6 @@
 # GeoIP Database Path
 geodb: GeoLite2-City.mmdb
+asndb: GeoLite2-ASN.mmdb
 dl_map: userdata.csv
 
 # LRU Cache Size (in items)
@@ -34,6 +35,10 @@ servers:
     - server: mirrors.bfsu.edu.cn/armbian/
     - server: mirrors.dotsrc.org/armbian-apt/
       weight: 15
+      protocols:
+        - http
+        - https
+        - rsync
     - server: mirrors.netix.net/armbian/apt/
     - server: mirrors.nju.edu.cn/armbian/
     - server: mirrors.sustech.edu.cn/armbian/

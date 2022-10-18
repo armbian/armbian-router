@@ -5,7 +5,8 @@ This repository contains a redirect service for Armbian downloads, apt, etc.
 
 It uses multiple current technologies and best practices, including:
 
-- Go 1.17/1.18
+- Go 1.19
+- Ginkgo v2 and Gomega testing framework
 - GeoIP + Distance routing
 - Server weighting, pooling (top x servers are served instead of a single one)
 - Health checks (HTTP, TLS)
@@ -13,9 +14,28 @@ It uses multiple current technologies and best practices, including:
 Code Quality
 ------------
 
-The code quality isn't the greatest/top tier. All code lives in the "main" package and should be moved at some point.
+The code quality isn't the greatest/top tier. Work is being done towards cleaning it up and standardizing it, writing tests, etc.
 
-Regardless, it is meant to be simple and easy to understand.
+All contributions are welcome, see the `check_test.go` file for example tests.
+
+Checks
+------
+
+The supported checks are HTTP and TLS.
+
+### HTTP
+
+Verifies server accessibility via HTTP. If the server returns a forced redirect to an `https://` url, it is considered to be https-only.
+
+If the server responds on the `https` url with a forced `http` redirect, it will be marked down due to misconfiguration. Requests should never downgrade.
+
+### TLS
+
+Certificate checking to ensure no servers are used which have invalid/expired certificates. This check is written to use the Mozilla ca certificate list, loaded on start/config load, to verify roots.
+
+OS certificate trusts WERE being used to do this, however some issues with the date validation (which could be user error) caused the move to the ca bundle, which could be considered more usable.
+
+Note: This downloads from github every startup/reload. This should be a reliable process, as long as Mozilla doesn't deprecate their repo. Their HG URL is super slow.
 
 Configuration
 -------------
@@ -52,12 +72,19 @@ cacheSize: 1024
 # server = full url or host+path
 # weight = int
 # optional: latitude, longitude (float)
+# optional: protocols (list/array)
 servers:
   - server: armbian.12z.eu/apt/
   - server: armbian.chi.auroradev.org/apt/
     weight: 15
     latitude: 41.8879
     longitude: -88.1995
+  # Example of a server with additional protocols (rsync)
+  # Useful for defining servers which could be used for rsync sources
+  - server: mirrors.dotsrc.org/armbian-apt/
+    weight: 15
+    protocols:
+      - rsync
 ````
 
 ## API

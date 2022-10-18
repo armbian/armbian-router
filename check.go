@@ -1,4 +1,4 @@
-package main
+package redirector
 
 import (
 	"crypto/tls"
@@ -10,18 +10,34 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strings"
 	"time"
 )
 
 var (
-	ErrHttpsRedirect = errors.New("unexpected forced https redirect")
-	ErrCertExpired   = errors.New("certificate is expired")
+	// ErrHTTPSRedirect is an error thrown when the webserver returns
+	// an https redirect for an http url.
+	ErrHTTPSRedirect = errors.New("unexpected forced https redirect")
+
+	// ErrHTTPRedirect is an error thrown when the webserver returns
+	// a redirect to a non-https url from an https request.
+	ErrHTTPRedirect = errors.New("unexpected redirect to insecure url")
+
+	// ErrCertExpired is a fatal error thrown when the webserver's
+	// certificate is expired.
+	ErrCertExpired = errors.New("certificate is expired")
 )
 
-// checkHttp checks a URL for validity, and checks redirects
-func checkHttp(server *Server, logFields log.Fields) (bool, error) {
+func (r *Redirector) checkHTTP(scheme string) ServerCheck {
+	return func(server *Server, logFields log.Fields) (bool, error) {
+		return r.checkHTTPScheme(server, scheme, logFields)
+	}
+}
+
+// checkHTTPScheme checks a URL for validity, and checks redirects
+func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields log.Fields) (bool, error) {
 	u := &url.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   server.Host,
 		Path:   server.Path,
 	}
@@ -34,7 +50,7 @@ func checkHttp(server *Server, logFields log.Fields) (bool, error) {
 		return false, err
 	}
 
-	res, err := checkClient.Do(req)
+	res, err := r.config.checkClient.Do(req)
 
 	if err != nil {
 		return false, err
@@ -42,19 +58,26 @@ func checkHttp(server *Server, logFields log.Fields) (bool, error) {
 
 	logFields["responseCode"] = res.StatusCode
 
-	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
-		if res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound {
+	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusPermanentRedirect || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusNotFound {
+		if res.StatusCode == http.StatusMovedPermanently || res.StatusCode == http.StatusFound || res.StatusCode == http.StatusPermanentRedirect {
 			location := res.Header.Get("Location")
 
 			logFields["url"] = location
 
-			// Check that we don't redirect to https from a http url
-			if u.Scheme == "http" {
-				res, err := checkRedirect(location)
+			switch u.Scheme {
+			case "http":
+				res, err := r.checkRedirect(u.Scheme, location)
 
 				if !res || err != nil {
-					return res, err
+					// If we don't support http, we remove it from supported protocols
+					server.Protocols = server.Protocols.Remove("http")
+				} else {
+					// Otherwise, we verify https support
+					r.checkProtocol(server, "https")
 				}
+			case "https":
+				// We don't want to allow downgrading, so this is an error.
+				return r.checkRedirect(u.Scheme, location)
 			}
 		}
 
@@ -66,30 +89,63 @@ func checkHttp(server *Server, logFields log.Fields) (bool, error) {
 	return false, nil
 }
 
+func (r *Redirector) checkProtocol(server *Server, scheme string) {
+	res, err := r.checkHTTPScheme(server, scheme, log.Fields{})
+
+	if !res || err != nil {
+		return
+	}
+
+	if !server.Protocols.Contains(scheme) {
+		server.Protocols = server.Protocols.Append(scheme)
+	}
+}
+
 // checkRedirect parses a location header response and checks the scheme
-func checkRedirect(locationHeader string) (bool, error) {
-	newUrl, err := url.Parse(locationHeader)
+func (r *Redirector) checkRedirect(originatingScheme, locationHeader string) (bool, error) {
+	newURL, err := url.Parse(locationHeader)
 
 	if err != nil {
 		return false, err
 	}
 
-	if newUrl.Scheme == "https" {
-		return false, ErrHttpsRedirect
+	if newURL.Scheme == "https" {
+		return false, ErrHTTPSRedirect
+	} else if originatingScheme == "https" && newURL.Scheme == "http" {
+		return false, ErrHTTPRedirect
 	}
 
 	return true, nil
 }
 
 // checkTLS checks tls certificates from a host, ensures they're valid, and not expired.
-func checkTLS(server *Server, logFields log.Fields) (bool, error) {
-	host, port, err := net.SplitHostPort(server.Host)
+func (r *Redirector) checkTLS(server *Server, logFields log.Fields) (bool, error) {
+	var host, port string
+	var err error
+
+	if strings.Contains(server.Host, ":") {
+		host, port, err = net.SplitHostPort(server.Host)
+
+		if err != nil {
+			return false, err
+		}
+	} else {
+		host = server.Host
+	}
+
+	log.WithFields(log.Fields{
+		"server": server.Host,
+		"host":   host,
+		"port":   port,
+	}).Debug("Checking TLS server")
 
 	if port == "" {
 		port = "443"
 	}
 
-	conn, err := tls.Dial("tcp", host+":"+port, checkTLSConfig)
+	conn, err := tls.Dial("tcp", host+":"+port, &tls.Config{
+		RootCAs: r.config.RootCAs,
+	})
 
 	if err != nil {
 		return false, err
@@ -107,18 +163,38 @@ func checkTLS(server *Server, logFields log.Fields) (bool, error) {
 
 	state := conn.ConnectionState()
 
-	opts := x509.VerifyOptions{
-		CurrentTime: time.Now(),
+	peerPool := x509.NewCertPool()
+
+	for _, intermediate := range state.PeerCertificates {
+		if !intermediate.IsCA {
+			continue
+		}
+
+		peerPool.AddCert(intermediate)
 	}
 
-	for _, cert := range state.PeerCertificates {
-		if _, err := cert.Verify(opts); err != nil {
-			logFields["peerCert"] = cert.Subject.String()
-			return false, err
+	opts := x509.VerifyOptions{
+		Roots:         r.config.RootCAs,
+		Intermediates: peerPool,
+		CurrentTime:   time.Now(),
+	}
+
+	// We want only the leaf certificate, as this will verify up the chain for us.
+	cert := state.PeerCertificates[0]
+
+	if _, err := cert.Verify(opts); err != nil {
+		logFields["peerCert"] = cert.Subject.String()
+
+		if authErr, ok := err.(x509.UnknownAuthorityError); ok {
+			logFields["authCert"] = authErr.Cert.Subject.String()
+			logFields["ca"] = authErr.Cert.Issuer
 		}
-		if now.Before(cert.NotBefore) || now.After(cert.NotAfter) {
-			return false, err
-		}
+		return false, err
+	}
+
+	if now.Before(cert.NotBefore) || now.After(cert.NotAfter) {
+		logFields["peerCert"] = cert.Subject.String()
+		return false, err
 	}
 
 	for _, chain := range state.VerifiedChains {
@@ -128,6 +204,11 @@ func checkTLS(server *Server, logFields log.Fields) (bool, error) {
 				return false, ErrCertExpired
 			}
 		}
+	}
+
+	// If https is valid, append it
+	if !server.Protocols.Contains("https") {
+		server.Protocols = server.Protocols.Append("https")
 	}
 
 	return true, nil

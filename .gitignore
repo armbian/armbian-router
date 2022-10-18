@@ -4,3 +4,5 @@ dlrouter-apt.yaml
 *.yaml
 !dlrouter.yaml
 *.exe
+dlrouter
+cover.out

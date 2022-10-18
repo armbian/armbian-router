@@ -1,4 +1,4 @@
-package main
+package redirector
 
 import (
 	"crypto/rand"
@@ -58,11 +58,14 @@ var _ = Describe("Check suite", func() {
 		httpServer *httptest.Server
 		server     *Server
 		handler    http.HandlerFunc
+		r          *Redirector
 	)
 	BeforeEach(func() {
 		httpServer = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handler(w, r)
 		}))
+		r = New(&Config{})
+		r.config.SetRootCAs(x509.NewCertPool())
 	})
 	AfterEach(func() {
 		httpServer.Close()
@@ -89,21 +92,10 @@ var _ = Describe("Check suite", func() {
 				w.WriteHeader(http.StatusOK)
 			}
 
-			res, err := checkHttp(server, log.Fields{})
+			res, err := r.checkHTTPScheme(server, "http", log.Fields{})
 
 			Expect(res).To(BeTrue())
 			Expect(err).To(BeNil())
-		})
-		It("Should return an error when redirected to https", func() {
-			handler = func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Location", strings.Replace(httpServer.URL, "http://", "https://", -1))
-				w.WriteHeader(http.StatusMovedPermanently)
-			}
-
-			res, err := checkHttp(server, log.Fields{})
-
-			Expect(res).To(BeFalse())
-			Expect(err).To(Equal(ErrHttpsRedirect))
 		})
 	})
 	Context("TLS Checks", func() {
@@ -133,50 +125,60 @@ var _ = Describe("Check suite", func() {
 				Certificates: []tls.Certificate{tlsPair},
 			}
 
+			pool := x509.NewCertPool()
+
+			pool.AddCert(x509Cert)
+
+			r.config.SetRootCAs(pool)
+
 			httpServer.StartTLS()
 			setupServer()
 		}
+		Context("HTTPS Checks", func() {
+			BeforeEach(func() {
+				setupCerts(time.Now(), time.Now().Add(24*time.Hour))
+			})
+			It("Should return an error when redirected to http from https", func() {
+				handler = func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Location", strings.Replace(httpServer.URL, "https://", "http://", -1))
+					w.WriteHeader(http.StatusMovedPermanently)
+				}
+
+				logFields := log.Fields{}
+
+				res, err := r.checkHTTPScheme(server, "https", logFields)
+
+				Expect(logFields["url"]).ToNot(BeEmpty())
+				Expect(logFields["url"]).ToNot(Equal(httpServer.URL))
+				Expect(err).To(Equal(ErrHTTPRedirect))
+				Expect(res).To(BeFalse())
+			})
+		})
 		Context("CA Tests", func() {
 			BeforeEach(func() {
 				setupCerts(time.Now(), time.Now().Add(24*time.Hour))
 			})
 			It("Should fail due to invalid ca", func() {
-				res, err := checkTLS(server, log.Fields{})
+				r.config.SetRootCAs(x509.NewCertPool())
+
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
 			})
 			It("Should successfully validate certificates (valid ca, valid date/times, etc)", func() {
-				pool := x509.NewCertPool()
-
-				pool.AddCert(x509Cert)
-
-				checkTLSConfig = &tls.Config{RootCAs: pool}
-
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
-
-				checkTLSConfig = nil
 			})
 		})
 		Context("Expiration tests", func() {
-			AfterEach(func() {
-				checkTLSConfig = nil
-			})
 			It("Should fail due to not yet valid certificate", func() {
 				setupCerts(time.Now().Add(5*time.Hour), time.Now().Add(10*time.Hour))
 
-				// Trust our certs
-				pool := x509.NewCertPool()
-
-				pool.AddCert(x509Cert)
-
-				checkTLSConfig = &tls.Config{RootCAs: pool}
-
 				// Check TLS
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
@@ -184,15 +186,8 @@ var _ = Describe("Check suite", func() {
 			It("Should fail due to expired certificate", func() {
 				setupCerts(time.Now().Add(-10*time.Hour), time.Now().Add(-5*time.Hour))
 
-				// Trust our certs
-				pool := x509.NewCertPool()
-
-				pool.AddCert(x509Cert)
-
-				checkTLSConfig = &tls.Config{RootCAs: pool}
-
 				// Check TLS
-				res, err := checkTLS(server, log.Fields{})
+				res, err := r.checkTLS(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
