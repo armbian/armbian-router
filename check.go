@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -28,14 +30,18 @@ var (
 	ErrCertExpired = errors.New("certificate is expired")
 )
 
-func (r *Redirector) checkHTTP(scheme string) ServerCheck {
-	return func(server *Server, logFields log.Fields) (bool, error) {
-		return r.checkHTTPScheme(server, scheme, logFields)
-	}
+// HTTPCheck is a check for validity and redirects
+type HTTPCheck struct {
+	config *Config
 }
 
-// checkHTTPScheme checks a URL for validity, and checks redirects
-func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields log.Fields) (bool, error) {
+// Check checks a URL for validity, and checks redirects
+func (h *HTTPCheck) Check(server *Server, logFields log.Fields) (bool, error) {
+	return h.checkHTTPScheme(server, "http", logFields)
+}
+
+// checkHTTPScheme will check if a scheme is valid and doesn't redirect
+func (h *HTTPCheck) checkHTTPScheme(server *Server, scheme string, logFields log.Fields) (bool, error) {
 	u := &url.URL{
 		Scheme: scheme,
 		Host:   server.Host,
@@ -50,7 +56,7 @@ func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields lo
 		return false, err
 	}
 
-	res, err := r.config.checkClient.Do(req)
+	res, err := h.config.checkClient.Do(req)
 
 	if err != nil {
 		return false, err
@@ -66,18 +72,18 @@ func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields lo
 
 			switch u.Scheme {
 			case "http":
-				res, err := r.checkRedirect(u.Scheme, location)
+				res, err := h.checkRedirect(u.Scheme, location)
 
 				if !res || err != nil {
 					// If we don't support http, we remove it from supported protocols
 					server.Protocols = server.Protocols.Remove("http")
 				} else {
 					// Otherwise, we verify https support
-					r.checkProtocol(server, "https")
+					h.checkProtocol(server, "https")
 				}
 			case "https":
 				// We don't want to allow downgrading, so this is an error.
-				return r.checkRedirect(u.Scheme, location)
+				return h.checkRedirect(u.Scheme, location)
 			}
 		}
 
@@ -89,8 +95,8 @@ func (r *Redirector) checkHTTPScheme(server *Server, scheme string, logFields lo
 	return false, nil
 }
 
-func (r *Redirector) checkProtocol(server *Server, scheme string) {
-	res, err := r.checkHTTPScheme(server, scheme, log.Fields{})
+func (h *HTTPCheck) checkProtocol(server *Server, scheme string) {
+	res, err := h.checkHTTPScheme(server, scheme, log.Fields{})
 
 	if !res || err != nil {
 		return
@@ -102,7 +108,7 @@ func (r *Redirector) checkProtocol(server *Server, scheme string) {
 }
 
 // checkRedirect parses a location header response and checks the scheme
-func (r *Redirector) checkRedirect(originatingScheme, locationHeader string) (bool, error) {
+func (h *HTTPCheck) checkRedirect(originatingScheme, locationHeader string) (bool, error) {
 	newURL, err := url.Parse(locationHeader)
 
 	if err != nil {
@@ -118,8 +124,13 @@ func (r *Redirector) checkRedirect(originatingScheme, locationHeader string) (bo
 	return true, nil
 }
 
-// checkTLS checks tls certificates from a host, ensures they're valid, and not expired.
-func (r *Redirector) checkTLS(server *Server, logFields log.Fields) (bool, error) {
+// TLSCheck is a TLS certificate check
+type TLSCheck struct {
+	config *Config
+}
+
+// Check checks tls certificates from a host, ensures they're valid, and not expired.
+func (t *TLSCheck) Check(server *Server, logFields log.Fields) (bool, error) {
 	var host, port string
 	var err error
 
@@ -144,7 +155,7 @@ func (r *Redirector) checkTLS(server *Server, logFields log.Fields) (bool, error
 	}
 
 	conn, err := tls.Dial("tcp", host+":"+port, &tls.Config{
-		RootCAs: r.config.RootCAs,
+		RootCAs: t.config.RootCAs,
 	})
 
 	if err != nil {
@@ -174,7 +185,7 @@ func (r *Redirector) checkTLS(server *Server, logFields log.Fields) (bool, error
 	}
 
 	opts := x509.VerifyOptions{
-		Roots:         r.config.RootCAs,
+		Roots:         t.config.RootCAs,
 		Intermediates: peerPool,
 		CurrentTime:   time.Now(),
 	}
@@ -212,4 +223,84 @@ func (r *Redirector) checkTLS(server *Server, logFields log.Fields) (bool, error
 	}
 
 	return true, nil
+}
+
+type VersionCheck struct {
+	config          *Config
+	VersionURL      string
+	lastVersion     string
+	lastVersionTime time.Time
+}
+
+func (v *VersionCheck) getCurrentVersion() (string, error) {
+	if v.lastVersion != "" && time.Now().Before(v.lastVersionTime.Add(5*time.Minute)) {
+		return v.lastVersion, nil
+	}
+
+	req, err := http.NewRequest(http.MethodGet, v.VersionURL, nil)
+
+	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
+
+	if err != nil {
+		return "", err
+	}
+
+	res, err := v.config.checkClient.Do(req)
+
+	if err != nil {
+		return "", err
+	}
+
+	defer res.Body.Close()
+
+	b, err := io.ReadAll(io.LimitReader(res.Body, 128))
+
+	if err != nil {
+		return "", err
+	}
+
+	v.lastVersion = string(b)
+	v.lastVersionTime = time.Now()
+
+	return v.lastVersion, nil
+}
+
+func (v *VersionCheck) Check(server *Server, logFields log.Fields) (bool, error) {
+	currentVersion, err := v.getCurrentVersion()
+
+	if err != nil {
+		return false, err
+	}
+
+	controlPath := path.Join(server.Path, ".control")
+
+	u := &url.URL{
+		Scheme: "https",
+		Host:   server.Host,
+		Path:   controlPath,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+
+	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
+
+	if err != nil {
+		return false, err
+	}
+
+	res, err := v.config.checkClient.Do(req)
+
+	if err != nil {
+		return false, err
+	}
+
+	defer res.Body.Close()
+
+	b, err := io.ReadAll(io.LimitReader(res.Body, 128))
+
+	if err != nil {
+		return false, err
+	}
+
+	return string(b) == currentVersion, nil
 }

@@ -28,7 +28,9 @@ type Server struct {
 }
 
 // ServerCheck is a check function which can return information about a status.
-type ServerCheck func(server *Server, logFields log.Fields) (bool, error)
+type ServerCheck interface {
+	Check(server *Server, logFields log.Fields) (bool, error)
+}
 
 // checkStatus runs all status checks against a server
 func (server *Server) checkStatus(checks []ServerCheck) {
@@ -40,7 +42,7 @@ func (server *Server) checkStatus(checks []ServerCheck) {
 	var err error
 
 	for _, check := range checks {
-		res, err = check(server, logFields)
+		res, err = check.Check(server, logFields)
 
 		if err != nil {
 			logFields["error"] = err

@@ -83,12 +83,14 @@ type ASN struct {
 // ServerConfig is a configuration struct holding basic server configuration.
 // This is used for initial loading of server information before parsing into Server.
 type ServerConfig struct {
-	Server    string   `mapstructure:"server" yaml:"server"`
-	Latitude  float64  `mapstructure:"latitude" yaml:"latitude"`
-	Longitude float64  `mapstructure:"longitude" yaml:"longitude"`
-	Continent string   `mapstructure:"continent"`
-	Weight    int      `mapstructure:"weight" yaml:"weight"`
-	Protocols []string `mapstructure:"protocols" yaml:"protocols"`
+	Server     string    `mapstructure:"server" yaml:"server"`
+	Latitude   float64   `mapstructure:"latitude" yaml:"latitude"`
+	Longitude  float64   `mapstructure:"longitude" yaml:"longitude"`
+	Continent  string    `mapstructure:"continent"`
+	Weight     int       `mapstructure:"weight" yaml:"weight"`
+	Protocols  []string  `mapstructure:"protocols" yaml:"protocols"`
+	IncludeASN []ASNList `mapstructure:"includeASN" yaml:"includeASN"`
+	ExcludeASN []ASNList `mapstructure:"excludeASN" yaml:"excludeASN"`
 }
 
 // New creates a new instance of Redirector
@@ -98,8 +100,18 @@ func New(config *Config) *Redirector {
 	}
 
 	r.checks = []ServerCheck{
-		r.checkHTTP("http"),
-		r.checkTLS,
+		&HTTPCheck{
+			config: config,
+		},
+		&TLSCheck{
+			config: config,
+		},
+	}
+
+	if config.CheckURL != "" {
+		r.checks = append(r.checks, &VersionCheck{
+			VersionURL: config.CheckURL,
+		})
 	}
 
 	return r

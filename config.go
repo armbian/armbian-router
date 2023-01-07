@@ -41,6 +41,9 @@ type Config struct {
 	// ReloadToken is a secret token used for web-based reload.
 	ReloadToken string `mapstructure:"reloadToken"`
 
+	// CheckURL is the url used to verify mirror versions
+	CheckURL string `mapstructure:"checkUrl"`
+
 	// ServerList is a list of ServerConfig structs, which gets parsed into servers.
 	ServerList []ServerConfig `mapstructure:"servers"`
 

@@ -64,7 +64,9 @@ var _ = Describe("Check suite", func() {
 		httpServer = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handler(w, r)
 		}))
-		r = New(&Config{})
+		r = New(&Config{
+			checkClient: &http.Client{},
+		})
 		r.config.SetRootCAs(x509.NewCertPool())
 	})
 	AfterEach(func() {
@@ -83,16 +85,18 @@ var _ = Describe("Check suite", func() {
 	}
 
 	Context("HTTP Checks", func() {
+		var h *HTTPCheck
 		BeforeEach(func() {
 			httpServer.Start()
 			setupServer()
+			h = &HTTPCheck{config: r.config}
 		})
 		It("Should successfully check for connectivity", func() {
 			handler = func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}
 
-			res, err := r.checkHTTPScheme(server, "http", log.Fields{})
+			res, err := h.checkHTTPScheme(server, "http", log.Fields{})
 
 			Expect(res).To(BeTrue())
 			Expect(err).To(BeNil())
@@ -101,6 +105,7 @@ var _ = Describe("Check suite", func() {
 	Context("TLS Checks", func() {
 		var (
 			x509Cert *x509.Certificate
+			t        *TLSCheck
 		)
 		setupCerts := func(notBefore, notAfter time.Time) {
 			cert, key, err := genTestCerts(notBefore, notAfter)
@@ -131,10 +136,13 @@ var _ = Describe("Check suite", func() {
 
 			r.config.SetRootCAs(pool)
 
+			t = &TLSCheck{config: r.config}
+
 			httpServer.StartTLS()
 			setupServer()
 		}
 		Context("HTTPS Checks", func() {
+			h := &HTTPCheck{config: r.config}
 			BeforeEach(func() {
 				setupCerts(time.Now(), time.Now().Add(24*time.Hour))
 			})
@@ -146,7 +154,7 @@ var _ = Describe("Check suite", func() {
 
 				logFields := log.Fields{}
 
-				res, err := r.checkHTTPScheme(server, "https", logFields)
+				res, err := h.checkHTTPScheme(server, "https", logFields)
 
 				Expect(logFields["url"]).ToNot(BeEmpty())
 				Expect(logFields["url"]).ToNot(Equal(httpServer.URL))
@@ -161,13 +169,13 @@ var _ = Describe("Check suite", func() {
 			It("Should fail due to invalid ca", func() {
 				r.config.SetRootCAs(x509.NewCertPool())
 
-				res, err := r.checkTLS(server, log.Fields{})
+				res, err := t.Check(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
 			})
 			It("Should successfully validate certificates (valid ca, valid date/times, etc)", func() {
-				res, err := r.checkTLS(server, log.Fields{})
+				res, err := t.Check(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
@@ -178,7 +186,7 @@ var _ = Describe("Check suite", func() {
 				setupCerts(time.Now().Add(5*time.Hour), time.Now().Add(10*time.Hour))
 
 				// Check TLS
-				res, err := r.checkTLS(server, log.Fields{})
+				res, err := t.Check(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
@@ -187,7 +195,34 @@ var _ = Describe("Check suite", func() {
 				setupCerts(time.Now().Add(-10*time.Hour), time.Now().Add(-5*time.Hour))
 
 				// Check TLS
-				res, err := r.checkTLS(server, log.Fields{})
+				res, err := t.Check(server, log.Fields{})
+
+				Expect(res).To(BeFalse())
+				Expect(err).ToNot(BeNil())
+			})
+		})
+		Context("Version checks", func() {
+			v := &VersionCheck{
+				config:          r.config,
+				lastVersion:     "1234567890",
+				lastVersionTime: time.Now(),
+			}
+			It("Should succeed and match versions", func() {
+				handler = func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte("1234567890"))
+				}
+
+				res, err := v.Check(server, log.Fields{})
+
+				Expect(res).To(BeTrue())
+				Expect(err).To(BeNil())
+			})
+			It("Should fail due to mismatched versions", func() {
+				handler = func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte("0987654321"))
+				}
+
+				res, err := v.Check(server, log.Fields{})
 
 				Expect(res).To(BeFalse())
 				Expect(err).ToNot(BeNil())
