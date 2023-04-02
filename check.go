@@ -281,6 +281,10 @@ func (v *VersionCheck) Check(server *Server, logFields log.Fields) (bool, error)
 		Path:   controlPath,
 	}
 
+	if !lo.Contains(server.Protocols, "https") {
+		u.Scheme = "http"
+	}
+
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 
 	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")

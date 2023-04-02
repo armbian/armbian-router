@@ -64,10 +64,14 @@ var _ = Describe("Check suite", func() {
 		httpServer = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handler(w, r)
 		}))
+
 		r = New(&Config{
 			checkClient: &http.Client{},
 		})
+
 		r.config.SetRootCAs(x509.NewCertPool())
+
+		Expect(r.config).ToNot(BeNil())
 	})
 	AfterEach(func() {
 		httpServer.Close()
@@ -78,9 +82,13 @@ var _ = Describe("Check suite", func() {
 		if err != nil {
 			panic(err)
 		}
+
 		server = &Server{
 			Host: u.Host,
 			Path: u.Path,
+			Protocols: []string{
+				"http",
+			},
 		}
 	}
 
@@ -142,8 +150,13 @@ var _ = Describe("Check suite", func() {
 			setupServer()
 		}
 		Context("HTTPS Checks", func() {
-			h := &HTTPCheck{config: r.config}
+			var h *HTTPCheck
 			BeforeEach(func() {
+				h = &HTTPCheck{
+					config: r.config,
+				}
+				setupServer()
+
 				setupCerts(time.Now(), time.Now().Add(24*time.Hour))
 			})
 			It("Should return an error when redirected to http from https", func() {
@@ -164,6 +177,7 @@ var _ = Describe("Check suite", func() {
 		})
 		Context("CA Tests", func() {
 			BeforeEach(func() {
+				setupServer()
 				setupCerts(time.Now(), time.Now().Add(24*time.Hour))
 			})
 			It("Should fail due to invalid ca", func() {
@@ -202,11 +216,16 @@ var _ = Describe("Check suite", func() {
 			})
 		})
 		Context("Version checks", func() {
-			v := &VersionCheck{
-				config:          r.config,
-				lastVersion:     "1234567890",
-				lastVersionTime: time.Now(),
-			}
+			var v *VersionCheck
+			BeforeEach(func() {
+				v = &VersionCheck{
+					config:          r.config,
+					lastVersion:     "1234567890",
+					lastVersionTime: time.Now(),
+				}
+				httpServer.Start()
+				setupServer()
+			})
 			It("Should succeed and match versions", func() {
 				handler = func(w http.ResponseWriter, r *http.Request) {
 					w.Write([]byte("1234567890"))
@@ -214,8 +233,8 @@ var _ = Describe("Check suite", func() {
 
 				res, err := v.Check(server, log.Fields{})
 
-				Expect(res).To(BeTrue())
 				Expect(err).To(BeNil())
+				Expect(res).To(BeTrue())
 			})
 			It("Should fail due to mismatched versions", func() {
 				handler = func(w http.ResponseWriter, r *http.Request) {
