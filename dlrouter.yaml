@@ -3,6 +3,8 @@ geodb: GeoLite2-City.mmdb
 asndb: GeoLite2-ASN.mmdb
 dl_map: userdata.csv
 
+checkUrl: https://imola.armbian.com/apt/.control
+
 # LRU Cache Size (in items)
 cacheSize: 1024
 
@@ -13,7 +15,6 @@ cacheSize: 1024
 # weight = int
 # optional: latitude, longitude (float)
 servers:
-    - server: armbian.12z.eu/apt/
     - server: armbian.chi.auroradev.org/apt/
       weight: 15
       latitude: 41.8879

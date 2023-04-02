@@ -81,10 +81,27 @@ servers:
     longitude: -88.1995
   # Example of a server with additional protocols (rsync)
   # Useful for defining servers which could be used for rsync sources
+  # This lets us potentially add an endpoint to say "give me a server with rsync"
   - server: mirrors.dotsrc.org/armbian-apt/
     weight: 15
     protocols:
+      - http
+      - https
       - rsync
+  # Example of a server with rules
+  - server: armbian.lv.auroradev.org/apt/
+    rules:
+      # Required: field
+      # Value matchers: is, is_not, in, not_in
+      # See the RuleInput struct, as well as the ASN and 
+      # This example excludes Google's ASN from this mirror
+      - field: asn.autonomous_system_number
+        is_not: 15169
+      # An example of a country blocking access to another
+      # For instance, Ukraine not allowing Russian ISPs in.
+      - field: location.country.iso_code
+        not_in:
+          - RU
 ````
 
 ## API

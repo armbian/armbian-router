@@ -40,17 +40,8 @@ type Redirector struct {
 	checkClient *http.Client
 }
 
-// LocationLookup is a specific GeoIP lookup on the maxminddb side,
-// used for finding the closest servers.
-type LocationLookup struct {
-	Location struct {
-		Latitude  float64 `maxminddb:"latitude"`
-		Longitude float64 `maxminddb:"longitude"`
-	} `maxminddb:"location"`
-}
-
-// City represents a MaxmindDB city, used only when loading servers,
-// or returning a GeoIP response.
+// City represents a MaxmindDB city.
+// This used to only be used on load, but is now used with rules as well.
 type City struct {
 	Continent struct {
 		Code      string            `maxminddb:"code" json:"code"`
@@ -83,14 +74,23 @@ type ASN struct {
 // ServerConfig is a configuration struct holding basic server configuration.
 // This is used for initial loading of server information before parsing into Server.
 type ServerConfig struct {
-	Server     string    `mapstructure:"server" yaml:"server"`
-	Latitude   float64   `mapstructure:"latitude" yaml:"latitude"`
-	Longitude  float64   `mapstructure:"longitude" yaml:"longitude"`
-	Continent  string    `mapstructure:"continent"`
-	Weight     int       `mapstructure:"weight" yaml:"weight"`
-	Protocols  []string  `mapstructure:"protocols" yaml:"protocols"`
-	IncludeASN []ASNList `mapstructure:"includeASN" yaml:"includeASN"`
-	ExcludeASN []ASNList `mapstructure:"excludeASN" yaml:"excludeASN"`
+	Server    string   `mapstructure:"server" yaml:"server"`
+	Latitude  float64  `mapstructure:"latitude" yaml:"latitude"`
+	Longitude float64  `mapstructure:"longitude" yaml:"longitude"`
+	Continent string   `mapstructure:"continent"`
+	Weight    int      `mapstructure:"weight" yaml:"weight"`
+	Protocols []string `mapstructure:"protocols" yaml:"protocols"`
+	Rules     []Rule   `mapstructure:"rules" yaml:"rules"`
+}
+
+// Rule defines a matching rule on a server.
+// This can be used to exclude ASNs, Countries, and more from a server.
+type Rule struct {
+	Field string   `mapstructure:"field" yaml:"field" json:"field"`
+	Is    string   `mapstructure:"is" yaml:"is" json:"is,omitempty"`
+	IsNot string   `mapstructure:"is_not" yaml:"is_not" json:"is_not,omitempty"`
+	In    []string `mapstructure:"in" yaml:"in" json:"in,omitempty"`
+	NotIn []string `mapstructure:"not_in" yaml:"not_in" json:"not_in,omitempty"`
 }
 
 // New creates a new instance of Redirector
@@ -110,6 +110,7 @@ func New(config *Config) *Redirector {
 
 	if config.CheckURL != "" {
 		r.checks = append(r.checks, &VersionCheck{
+			config:     config,
 			VersionURL: config.CheckURL,
 		})
 	}

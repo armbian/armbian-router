@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
@@ -76,57 +77,10 @@ func (c *Config) SetRootCAs(cas *x509.CertPool) {
 	}
 }
 
-// ASNList is a list of Autonomous System Numbers (in int)
-// It can be used to include or exclude specific ASNs from requests.
-type ASNList []uint
-
-// Contains checks if an ASN is in the list.
-func (a ASNList) Contains(value uint) bool {
-	for _, val := range a {
-		if value == val {
-			return true
-		}
-	}
-
-	return false
-}
-
-// ProtocolList is a list of supported protocols.
-type ProtocolList []string
-
-// Contains checks if the specified protocol exists in the list.
-func (p ProtocolList) Contains(value string) bool {
-	for _, val := range p {
-		if value == val {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Append adds a supported protocol to the list.
-func (p ProtocolList) Append(value string) ProtocolList {
-	return append(p, value)
-}
-
-// Remove a specific protocol from the list.
-func (p ProtocolList) Remove(value string) ProtocolList {
-	index := -1
-
-	for i, val := range p {
-		if value == val {
-			index = i
-			break
-		}
-	}
-
-	if index == -1 {
-		return p
-	}
-
-	p[index] = p[len(p)-1]
-	return p[:len(p)-1]
+func Remove[V comparable](collection []V, value V) []V {
+	return lo.Filter(collection, func(item V, _ int) bool {
+		return item != value
+	})
 }
 
 // ReloadConfig is called to reload the server's configuration.
@@ -325,13 +279,13 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		Longitude: server.Longitude,
 		Continent: server.Continent,
 		Weight:    server.Weight,
-		Protocols: ProtocolList{"http", "https"},
+		Protocols: []string{"http", "https"},
 	}
 
 	if len(server.Protocols) > 0 {
 		for _, proto := range server.Protocols {
-			if !s.Protocols.Contains(proto) {
-				s.Protocols = s.Protocols.Append(proto)
+			if !lo.Contains(s.Protocols, proto) {
+				s.Protocols = append(s.Protocols, proto)
 			}
 		}
 	}

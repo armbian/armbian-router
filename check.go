@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -76,7 +77,7 @@ func (h *HTTPCheck) checkHTTPScheme(server *Server, scheme string, logFields log
 
 				if !res || err != nil {
 					// If we don't support http, we remove it from supported protocols
-					server.Protocols = server.Protocols.Remove("http")
+					server.Protocols = Remove(server.Protocols, "http")
 				} else {
 					// Otherwise, we verify https support
 					h.checkProtocol(server, "https")
@@ -102,8 +103,8 @@ func (h *HTTPCheck) checkProtocol(server *Server, scheme string) {
 		return
 	}
 
-	if !server.Protocols.Contains(scheme) {
-		server.Protocols = server.Protocols.Append(scheme)
+	if !lo.Contains(server.Protocols, scheme) {
+		server.Protocols = append(server.Protocols, scheme)
 	}
 }
 
@@ -218,8 +219,8 @@ func (t *TLSCheck) Check(server *Server, logFields log.Fields) (bool, error) {
 	}
 
 	// If https is valid, append it
-	if !server.Protocols.Contains("https") {
-		server.Protocols = server.Protocols.Append("https")
+	if !lo.Contains(server.Protocols, "https") {
+		server.Protocols = append(server.Protocols, "https")
 	}
 
 	return true, nil
@@ -259,7 +260,7 @@ func (v *VersionCheck) getCurrentVersion() (string, error) {
 		return "", err
 	}
 
-	v.lastVersion = string(b)
+	v.lastVersion = strings.TrimSpace(string(b))
 	v.lastVersionTime = time.Now()
 
 	return v.lastVersion, nil
@@ -296,11 +297,24 @@ func (v *VersionCheck) Check(server *Server, logFields log.Fields) (bool, error)
 
 	defer res.Body.Close()
 
+	if res.StatusCode != 200 {
+		logFields["error"] = "Control file does not exist"
+		return false, nil
+	}
+
 	b, err := io.ReadAll(io.LimitReader(res.Body, 128))
 
 	if err != nil {
 		return false, err
 	}
 
-	return string(b) == currentVersion, nil
+	actualVersion := strings.TrimSpace(string(b))
+
+	if actualVersion != currentVersion {
+		logFields["expectedVersion"] = currentVersion
+		logFields["actualVersion"] = actualVersion
+		return false, fmt.Errorf("version mismatch, expected: %s, actual: %s", currentVersion, actualVersion)
+	}
+
+	return true, nil
 }
