@@ -26,7 +26,7 @@ func main() {
 	viper.SetDefault("bind", ":8080")
 	viper.SetDefault("cacheSize", 1024)
 	viper.SetDefault("topChoices", 3)
-	viper.SetDefault("reloadKey", redirector.RandomSequence(32))
+	viper.SetDefault("reloadKey", util.RandomSequence(32))
 
 	viper.SetConfigName("dlrouter")        // name of config file (without extension)
 	viper.SetConfigType("yaml")            // REQUIRED if the config file does not have the extension in the name
