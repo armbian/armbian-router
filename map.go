@@ -62,10 +62,15 @@ func loadMapCSV(f io.Reader) (map[string]string, error) {
 	return m, nil
 }
 
+// Map represents a JSON format of an asset list
+type Map struct {
+	Assets []ReleaseFile `json:"assets"`
+}
+
 // ReleaseFile represents a file to be mapped
 type ReleaseFile struct {
 	BoardSlug     string `json:"board_slug"`
-	FileURI       string `json:"file_uri"`
+	FileURL       string `json:"file_url"`
 	FileUpdated   string `json:"file_updated"`
 	FileSize      string `json:"file_size"`
 	DistroRelease string `json:"distro_release"`
@@ -84,20 +89,29 @@ var distroCaser = cases.Title(language.Und)
 func loadMapJSON(f io.Reader) (map[string]string, error) {
 	m := make(map[string]string)
 
-	var files []ReleaseFile
+	var data Map
 
-	if err := json.NewDecoder(f).Decode(&files); err != nil {
+	if err := json.NewDecoder(f).Decode(&data); err != nil {
 		return nil, err
 	}
 
-	for _, file := range files {
-		builtUri := fmt.Sprintf("%s/%s-%s.%s",
+	for _, file := range data.Assets {
+		builtUri := fmt.Sprintf("%s/%s_%s.%s",
 			file.BoardSlug,
 			distroCaser.String(file.DistroRelease),
 			file.KernelBranch,
 			file.Extension)
 
-		m[builtUri] = file.FileURI
+		m[builtUri] = file.FileURL
+
+		if file.Extension == "img.xz" {
+			noExtUri := fmt.Sprintf("%s/%s_%s",
+				file.BoardSlug,
+				distroCaser.String(file.DistroRelease),
+				file.KernelBranch)
+
+			m[noExtUri] = file.FileURL
+		}
 	}
 
 	return m, nil
