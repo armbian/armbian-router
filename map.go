@@ -120,10 +120,12 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 
 		sb.WriteString(".")
 
-		if file.Extension == "img.xz.sha" {
+		if strings.HasSuffix(file.Extension, ".sha") {
 			sb.WriteString("sha")
-		} else if file.Extension == "img.xz.asc" {
+		} else if strings.HasSuffix(file.Extension, ".asc") {
 			sb.WriteString("asc")
+		} else if strings.HasSuffix(file.Extension, ".torrent") {
+			sb.WriteString("torrent")
 		} else {
 			sb.WriteString(file.Extension)
 		}
