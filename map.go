@@ -13,6 +13,7 @@ import (
 	"golang.org/x/text/language"
 )
 
+// ErrUnsupportedFormat is returned when an unsupported map format is used.
 var ErrUnsupportedFormat = errors.New("unsupported map format")
 
 // loadMapFile loads a file as a map
@@ -120,16 +121,18 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 
 		sb.WriteString(".")
 
-		if file.Extension == "img.xz.sha" {
+		if strings.HasSuffix(file.Extension, ".sha") {
 			sb.WriteString("sha")
-		} else if file.Extension == "img.xz.asc" {
+		} else if strings.HasSuffix(file.Extension, ".asc") {
 			sb.WriteString("asc")
+		} else if strings.HasSuffix(file.Extension, ".torrent") {
+			sb.WriteString("torrent")
 		} else {
 			sb.WriteString(file.Extension)
 		}
 
-		builtUri := sb.String()
-		m[builtUri] = file.FileURL
+		builtURI := sb.String()
+		m[builtURI] = file.FileURL
 	}
 
 	return m, nil
