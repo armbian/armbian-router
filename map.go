@@ -4,13 +4,13 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"io"
 	"os"
 	"path"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var ErrUnsupportedFormat = errors.New("unsupported map format")
@@ -96,22 +96,40 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 	}
 
 	for _, file := range data.Assets {
-		builtUri := fmt.Sprintf("%s/%s_%s.%s",
-			file.BoardSlug,
-			distroCaser.String(file.DistroRelease),
-			file.KernelBranch,
-			file.Extension)
+		var sb strings.Builder
 
-		m[builtUri] = file.FileURL
+		sb.WriteString(file.BoardSlug)
+		sb.WriteString("/")
+		sb.WriteString(distroCaser.String(file.DistroRelease))
+		sb.WriteString("_")
+		sb.WriteString(file.KernelBranch)
+
+		if file.ImageVariant != "server" {
+			sb.WriteString("_")
+			sb.WriteString(file.ImageVariant)
+		}
+
+		if file.Preinstalled != "" {
+			sb.WriteString("-")
+			sb.WriteString(file.Preinstalled)
+		}
 
 		if file.Extension == "img.xz" {
-			noExtUri := fmt.Sprintf("%s/%s_%s",
-				file.BoardSlug,
-				distroCaser.String(file.DistroRelease),
-				file.KernelBranch)
-
-			m[noExtUri] = file.FileURL
+			m[sb.String()] = file.FileURL
 		}
+
+		sb.WriteString(".")
+
+		if file.Extension == "img.xz.sha" {
+			sb.WriteString("sha")
+		} else if file.Extension == "img.xz.asc" {
+			sb.WriteString("asc")
+		} else {
+			sb.WriteString(file.Extension)
+		}
+
+		builtUri := sb.String()
+		m[builtUri] = file.FileURL
 	}
 
 	return m, nil
