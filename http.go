@@ -3,6 +3,7 @@ package redirector
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/armbian/redirector/db"
 	"github.com/jmcvetta/randutil"
 	log "github.com/sirupsen/logrus"
 	"net"
@@ -190,7 +191,7 @@ func (r *Redirector) geoIPHandler(w http.ResponseWriter, req *http.Request) {
 
 	ip := net.ParseIP(ipStr)
 
-	var city City
+	var city db.City
 	err = r.db.Lookup(ip, &city)
 
 	if err != nil {

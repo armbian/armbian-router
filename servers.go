@@ -1,11 +1,17 @@
 package redirector
 
 import (
+	"fmt"
+	"github.com/armbian/redirector/db"
+	"github.com/armbian/redirector/util"
 	"github.com/jmcvetta/randutil"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
+	"github.com/sourcegraph/conc/pool"
 	"math"
 	"net"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -14,61 +20,117 @@ import (
 // Server represents a download server
 type Server struct {
 	Available  bool               `json:"available"`
+	Reason     string             `json:"reason,omitempty"`
 	Host       string             `json:"host"`
 	Path       string             `json:"path"`
 	Latitude   float64            `json:"latitude"`
 	Longitude  float64            `json:"longitude"`
 	Weight     int                `json:"weight"`
 	Continent  string             `json:"continent"`
-	Protocols  ProtocolList       `json:"protocols"`
-	IncludeASN ASNList            `json:"includeASN,omitempty"`
-	ExcludeASN ASNList            `json:"excludeASN,omitempty"`
+	Protocols  []string           `json:"protocols"`
+	Rules      []Rule             `json:"rules,omitempty"`
 	Redirects  prometheus.Counter `json:"-"`
 	LastChange time.Time          `json:"lastChange"`
 }
 
 // ServerCheck is a check function which can return information about a status.
-type ServerCheck func(server *Server, logFields log.Fields) (bool, error)
+type ServerCheck interface {
+	Check(server *Server, logFields log.Fields) (bool, error)
+}
 
 // checkStatus runs all status checks against a server
-func (server *Server) checkStatus(checks []ServerCheck) {
+// The return value of this isn't the availability, rather the change status
+// If true, the cache is flushed. If false, it does nothing.
+func (s *Server) checkStatus(checks []ServerCheck) bool {
 	logFields := log.Fields{
-		"host": server.Host,
+		"host": s.Host,
 	}
 
 	var res bool
 	var err error
 
 	for _, check := range checks {
-		res, err = check(server, logFields)
+		res, err = check.Check(s, logFields)
 
 		if err != nil {
 			logFields["error"] = err
 		}
 
 		if !res {
+			checkType := reflect.TypeOf(check)
+
+			if checkType.Kind() == reflect.Ptr {
+				checkType = checkType.Elem()
+			}
+
+			logFields["check"] = checkType.Name()
 			break
 		}
 	}
 
 	if !res {
-		if server.Available {
-			log.WithFields(logFields).Info("Server went offline")
+		if s.Available {
+			log.WithFields(logFields).Info("Server is now unavailable")
 
-			server.Available = false
-			server.LastChange = time.Now()
+			s.Available = false
+			s.LastChange = time.Now()
+
+			if v, ok := logFields["error"]; ok {
+				s.Reason = fmt.Sprintf("%v", v)
+			}
+
+			return true
 		} else {
-			log.WithFields(logFields).Debug("Server is still offline")
+			log.WithFields(logFields).Debug("Server is still unavailable")
 		}
 
-		return
+		return false
 	}
 
-	if !server.Available {
-		server.Available = true
-		server.LastChange = time.Now()
+	if !s.Available {
+		s.Available = true
+		s.Reason = ""
+		s.LastChange = time.Now()
+
 		log.WithFields(logFields).Info("Server is online")
+
+		return true
 	}
+
+	return false
+}
+
+// checkRUles takes input from a value match and checks the ruleset.
+// This will remove items for ASN rules, etc.
+func (s *Server) checkRules(input RuleInput) bool {
+	if len(s.Rules) < 1 {
+		return true
+	}
+
+	for _, rule := range s.Rules {
+		value, ok := util.GetValue(input, rule.Field)
+
+		if !ok {
+			log.WithFields(log.Fields{
+				"field": rule.Field,
+			}).Warning("Invalid rule field")
+			continue
+		}
+
+		valueStr := fmt.Sprintf("%v", value)
+
+		if len(rule.Is) > 0 && rule.Is != valueStr {
+			return false
+		} else if len(rule.IsNot) > 0 && rule.IsNot == valueStr {
+			return false
+		} else if len(rule.In) > 0 && !lo.Contains(rule.In, valueStr) {
+			return false
+		} else if len(rule.NotIn) > 0 && lo.Contains(rule.NotIn, valueStr) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // ServerList is a wrapper for a Server slice.
@@ -77,32 +139,48 @@ type ServerList []*Server
 
 // checkLoop is a loop function which checks server statuses
 // every 60 seconds.
-func (s ServerList) checkLoop(checks []ServerCheck) {
+func (s ServerList) checkLoop(r *Redirector, checks []ServerCheck) {
 	t := time.NewTicker(60 * time.Second)
 
 	for {
 		<-t.C
-		s.Check(checks)
+		s.Check(r, checks)
 	}
 }
 
 // Check will request the index from all servers
 // If a server does not respond in 10 seconds, it is considered offline.
 // This will wait until all checks are complete.
-func (s ServerList) Check(checks []ServerCheck) {
-	var wg sync.WaitGroup
+func (s ServerList) Check(r *Redirector, checks []ServerCheck) {
+	p := pool.New()
 
-	for _, server := range s {
-		wg.Add(1)
+	var clearOnce sync.Once
 
-		go func(server *Server) {
-			defer wg.Done()
+	f := func(server *Server) func() {
+		return func() {
+			if !server.checkStatus(checks) {
+				return
+			}
 
-			server.checkStatus(checks)
-		}(server)
+			// Clear cache, but only once
+			clearOnce.Do(func() {
+				r.serverCache.Purge()
+			})
+		}
 	}
 
-	wg.Wait()
+	for _, server := range s {
+		p.Go(f(server))
+	}
+
+	p.Wait()
+}
+
+// RuleInput is a set of fields used for rule checks
+type RuleInput struct {
+	IP       string  `json:"ip"`
+	ASN      db.ASN  `json:"asn"`
+	Location db.City `json:"location"`
 }
 
 // ComputedDistance is a wrapper that contains a Server and Distance.
@@ -111,9 +189,6 @@ type ComputedDistance struct {
 	Distance float64
 }
 
-// DistanceList is a list of Computed Distances with an easy "Choices" func
-type DistanceList []ComputedDistance
-
 // Closest will use GeoIP on the IP provided and find the closest servers.
 // When we have a list of x servers closest, we can choose a random or weighted one.
 // Return values are the closest server, the distance, and if an error occurred.
@@ -121,7 +196,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 	choiceInterface, exists := r.serverCache.Get(scheme + "_" + ip.String())
 
 	if !exists {
-		var city LocationLookup
+		var city db.City
 		err := r.db.Lookup(ip, &city)
 
 		if err != nil {
@@ -129,8 +204,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 			return nil, -1, err
 		}
 
-		var asn ASN
-		hasASN := false
+		var asn db.ASN
 
 		if r.asnDB != nil {
 			err = r.asnDB.Lookup(ip, &asn)
@@ -139,28 +213,37 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 				log.WithError(err).Warning("Unable to load ASN information")
 				return nil, -1, err
 			}
-
-			hasASN = true
 		}
 
-		c := make(DistanceList, 0)
+		ruleInput := RuleInput{
+			IP:       ip.String(),
+			ASN:      asn,
+			Location: city,
+		}
 
-		for _, server := range s {
-			if !server.Available ||
-				!server.Protocols.Contains(scheme) ||
-				len(server.IncludeASN) > 0 && hasASN && !server.IncludeASN.Contains(asn.AutonomousSystemNumber) ||
-				len(server.ExcludeASN) > 0 && hasASN && server.ExcludeASN.Contains(asn.AutonomousSystemNumber) {
-				log.WithField("host", server.Host).WithField("proto", scheme).Debug("Skipping server due to protocol not containing supported protocol")
-				continue
+		// First, filter our servers to what are actually available/match.
+		validServers := lo.Filter(s, func(server *Server, _ int) bool {
+			if !server.Available || !lo.Contains(server.Protocols, scheme) {
+				return false
 			}
 
+			if !server.checkRules(ruleInput) {
+				log.WithField("host", server.Host).Debug("Skipping server due to rules")
+				return false
+			}
+
+			return true
+		})
+
+		// Then, map them to distances from the client
+		c := lo.Map(validServers, func(server *Server, _ int) ComputedDistance {
 			distance := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
 
-			c = append(c, ComputedDistance{
+			return ComputedDistance{
 				Server:   server,
 				Distance: distance,
-			})
-		}
+			}
+		})
 
 		// Sort by distance
 		sort.Slice(c, func(i int, j int) bool {
