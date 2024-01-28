@@ -1,10 +1,11 @@
 package util
 
 import (
-	"github.com/armbian/redirector/db"
 	"math/rand"
 	"reflect"
 	"strings"
+
+	"github.com/armbian/redirector/db"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

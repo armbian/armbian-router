@@ -1,10 +1,12 @@
 package redirector
 
 import (
+	"fmt"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 var _ = Describe("Map", func() {
@@ -39,5 +41,64 @@ var _ = Describe("Map", func() {
 		log.Println(m)
 		Expect(err).To(BeNil())
 		Expect(m["aml-s9xx-box/Bookworm_current"]).To(Equal("https://dl.armbian.com/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz"))
+	})
+
+	It("Should successfully load the map from a JSON file", func() {
+		data := `{
+  "assets": [
+    {
+		"board_slug": "khadas-vim1",
+		"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
+		"file_updated": "2023-11-30T01:06:34Z",
+		"file_size": "1605260504",
+		"distro_release": "bookworm",
+		"kernel_branch": "current",
+		"image_variant": "xfce",
+		"preinstalled_application": "",
+		"promoted": "false",
+		"download_repository": "archive",
+		"file_extension": "img.xz"
+	},
+	{
+		"board_slug": "khadas-vim1",
+		"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha",
+		"file_updated": "2023-11-30T01:06:34Z",
+		"file_size": "1605260504",
+		"distro_release": "bookworm",
+		"kernel_branch": "current",
+		"image_variant": "xfce",
+		"preinstalled_application": "",
+		"promoted": "false",
+		"download_repository": "archive",
+		"file_extension": "img.xz.sha"
+	},
+	{
+		"board_slug": "khadas-vim1",
+		"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
+		"file_updated": "2023-11-30T01:06:34Z",
+		"file_size": "1605260504",
+		"distro_release": "bookworm",
+		"kernel_branch": "current",
+		"image_variant": "xfce",
+		"preinstalled_application": "test",
+		"promoted": "false",
+		"download_repository": "archive",
+		"file_extension": "img.xz"
+	}
+  ]
+}`
+
+		m, err := loadMapJSON(strings.NewReader(data))
+
+		log.Println(m)
+
+		for k, v := range m {
+			fmt.Printf("%s => %s\n", k, v)
+		}
+
+		Expect(err).To(BeNil())
+		Expect(m["khadas-vim1/Bookworm_current_xfce"]).To(Equal("https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
+		Expect(m["khadas-vim1/Bookworm_current_xfce.sha"]).To(Equal("https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha"))
+		Expect(m["khadas-vim1/Bookworm_current_xfce-test"]).To(Equal("https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
 	})
 })
