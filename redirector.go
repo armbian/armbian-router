@@ -40,37 +40,6 @@ type Redirector struct {
 	checkClient *http.Client
 }
 
-// City represents a MaxmindDB city.
-// This used to only be used on load, but is now used with rules as well.
-type City struct {
-	Continent struct {
-		Code      string            `maxminddb:"code" json:"code"`
-		GeoNameID uint              `maxminddb:"geoname_id" json:"geoname_id"`
-		Names     map[string]string `maxminddb:"names" json:"names"`
-	} `maxminddb:"continent" json:"continent"`
-	Country struct {
-		GeoNameID uint              `maxminddb:"geoname_id" json:"geoname_id"`
-		IsoCode   string            `maxminddb:"iso_code" json:"iso_code"`
-		Names     map[string]string `maxminddb:"names" json:"names"`
-	} `maxminddb:"country" json:"country"`
-	Location struct {
-		AccuracyRadius uint16  `maxminddb:"accuracy_radius" json:"accuracy_radius"`
-		Latitude       float64 `maxminddb:"latitude" json:"latitude"`
-		Longitude      float64 `maxminddb:"longitude" json:"longitude"`
-	} `maxminddb:"location"`
-	RegisteredCountry struct {
-		GeoNameID uint              `maxminddb:"geoname_id" json:"geoname_id"`
-		IsoCode   string            `maxminddb:"iso_code" json:"iso_code"`
-		Names     map[string]string `maxminddb:"names" json:"names"`
-	} `maxminddb:"registered_country" json:"registered_country"`
-}
-
-// The ASN struct corresponds to the data in the GeoLite2 ASN database.
-type ASN struct {
-	AutonomousSystemNumber       uint   `maxminddb:"autonomous_system_number"`
-	AutonomousSystemOrganization string `maxminddb:"autonomous_system_organization"`
-}
-
 // ServerConfig is a configuration struct holding basic server configuration.
 // This is used for initial loading of server information before parsing into Server.
 type ServerConfig struct {
@@ -128,7 +97,7 @@ func (r *Redirector) Start() http.Handler {
 	log.Info("Starting check loop")
 
 	// Start check loop
-	go r.servers.checkLoop(r.checks)
+	go r.servers.checkLoop(r, r.checks)
 
 	log.Info("Setting up routes")
 

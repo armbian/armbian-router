@@ -1,6 +1,7 @@
-package redirector
+package util
 
 import (
+	"github.com/armbian/redirector/db"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -21,9 +22,20 @@ var (
 	structTags = []string{"json", "yaml", "maxminddb"}
 )
 
+func GetValue(val any, key string) (any, bool) {
+	// Bypass reflection for known types
+	if strings.HasPrefix(key, "asn") || strings.HasPrefix(key, "city") {
+		return db.GetValue(val, key)
+	}
+
+	// Fallback to reflection
+	return getValueReflect(val, key)
+}
+
 // GetValue is a reflection helper like Laravel's data_get
 // It lets us use the syntax of some.field.nested in rules.
-func GetValue(val any, key string) (any, bool) {
+// This is the slow path, see db.GetValue for the faster (somewhat generated) path
+func getValueReflect(val any, key string) (any, bool) {
 	v := reflect.ValueOf(val)
 
 	keysSplit := strings.Split(key, ".")

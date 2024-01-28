@@ -3,6 +3,7 @@ package redirector
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/armbian/redirector/db"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/pkg/errors"
@@ -168,7 +169,7 @@ func (r *Redirector) ReloadConfig() error {
 	}
 
 	// Force check
-	go r.servers.Check(r.checks)
+	go r.servers.Check(r, r.checks)
 
 	return nil
 }
@@ -305,7 +306,7 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		return nil, err
 	}
 
-	var city City
+	var city db.City
 	err = r.db.Lookup(ips[0], &city)
 
 	if err != nil {
