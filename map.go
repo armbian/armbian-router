@@ -4,7 +4,9 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	log "github.com/sirupsen/logrus"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -97,6 +99,19 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 	}
 
 	for _, file := range data.Assets {
+		// Because download mapping a full URL, redirecting, and finding a server again is redundant,
+		// we parse the URL and only return the path here. Previously, it would use https://dl.armbian.com/PATH
+		// which is not supported, as the redirector will always prepend a server
+		u, err := url.Parse(file.FileURL)
+
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+				"uri":   file.FileURL,
+			}).Warning("Error parsing redirect url or path")
+			continue
+		}
+
 		var sb strings.Builder
 
 		sb.WriteString(file.BoardSlug)
@@ -116,7 +131,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		}
 
 		if file.Extension == "img.xz" {
-			m[sb.String()] = file.FileURL
+			m[sb.String()] = u.Path
 		}
 
 		sb.WriteString(".")
@@ -131,8 +146,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 			sb.WriteString(file.Extension)
 		}
 
-		builtURI := sb.String()
-		m[builtURI] = file.FileURL
+		m[sb.String()] = u.Path
 	}
 
 	return m, nil
