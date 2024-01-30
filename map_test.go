@@ -1,12 +1,10 @@
 package redirector
 
 import (
-	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Map", func() {
@@ -38,12 +36,11 @@ var _ = Describe("Map", func() {
 
 		m, err := loadMapJSON(strings.NewReader(data))
 
-		log.Println(m)
 		Expect(err).To(BeNil())
-		Expect(m["aml-s9xx-box/Bookworm_current"]).To(Equal("https://dl.armbian.com/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz"))
+		Expect(m["aml-s9xx-box/Bookworm_current"]).To(Equal("/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz"))
 	})
 
-	It("Should successfully load the map from a JSON file", func() {
+	It("Should successfully load the map from a JSON file, rewriting extension paths as necessary", func() {
 		data := `{
   "assets": [
     {
@@ -90,15 +87,9 @@ var _ = Describe("Map", func() {
 
 		m, err := loadMapJSON(strings.NewReader(data))
 
-		log.Println(m)
-
-		for k, v := range m {
-			fmt.Printf("%s => %s\n", k, v)
-		}
-
 		Expect(err).To(BeNil())
-		Expect(m["khadas-vim1/Bookworm_current_xfce"]).To(Equal("https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
-		Expect(m["khadas-vim1/Bookworm_current_xfce.sha"]).To(Equal("https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha"))
-		Expect(m["khadas-vim1/Bookworm_current_xfce-test"]).To(Equal("https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
+		Expect(m["khadas-vim1/Bookworm_current_xfce"]).To(Equal("/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
+		Expect(m["khadas-vim1/Bookworm_current_xfce.sha"]).To(Equal("/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha"))
+		Expect(m["khadas-vim1/Bookworm_current_xfce-test"]).To(Equal("/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
 	})
 })
