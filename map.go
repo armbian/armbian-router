@@ -130,7 +130,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 			sb.WriteString(file.Preinstalled)
 		}
 
-		if file.Extension == "img.xz" {
+		if strings.HasSuffix(file.Extension, "img.xz") {
 			m[sb.String()] = u.Path
 		}
 
