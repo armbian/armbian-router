@@ -92,4 +92,59 @@ var _ = Describe("Map", func() {
 		Expect(m["khadas-vim1/Bookworm_current_xfce.sha"]).To(Equal("/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha"))
 		Expect(m["khadas-vim1/Bookworm_current_xfce-test"]).To(Equal("/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
 	})
+	It("Should work with files that have weird extensions", func() {
+		data := `{
+  "assets": [
+    {
+      "board_slug": "khadas-vim4",
+      "armbian_version": "23.11.1",
+      "file_url": "https://dl.armbian.com/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz",
+      "file_updated": "2023-11-30T01:03:05Z",
+      "file_size": "477868032",
+      "distro_release": "bookworm",
+      "kernel_branch": "legacy",
+      "image_variant": "server",
+      "preinstalled_application": "",
+      "promoted": "true",
+      "download_repository": "archive",
+      "file_extension": "oowow.img.xz"
+    },
+    {
+      "board_slug": "khadas-vim4",
+      "armbian_version": "23.11.1",
+      "file_url": "https://dl.armbian.com/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.asc",
+      "file_updated": "2023-11-30T01:03:05Z",
+      "file_size": "833",
+      "distro_release": "bookworm",
+      "kernel_branch": "legacy",
+      "image_variant": "server",
+      "preinstalled_application": "",
+      "promoted": "true",
+      "download_repository": "archive",
+      "file_extension": "oowow.img.xz.asc"
+    },
+    {
+      "board_slug": "khadas-vim4",
+      "armbian_version": "23.11.1",
+      "file_url": "https://dl.armbian.com/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.sha",
+      "file_updated": "2023-11-30T01:03:05Z",
+      "file_size": "178",
+      "distro_release": "bookworm",
+      "kernel_branch": "legacy",
+      "image_variant": "server",
+      "preinstalled_application": "",
+      "promoted": "true",
+      "download_repository": "archive",
+      "file_extension": "oowow.img.xz.sha"
+    }
+  ]
+}`
+
+		m, err := loadMapJSON(strings.NewReader(data))
+
+		Expect(err).To(BeNil())
+		Expect(m["khadas-vim4/Bookworm_legacy"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz"))
+		Expect(m["khadas-vim4/Bookworm_legacy.asc"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.asc"))
+		Expect(m["khadas-vim4/Bookworm_legacy.sha"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.sha"))
+	})
 })
