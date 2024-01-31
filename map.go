@@ -4,12 +4,13 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/url"
 	"os"
 	"path"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -128,6 +129,16 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		if file.Preinstalled != "" {
 			sb.WriteString("-")
 			sb.WriteString(file.Preinstalled)
+		}
+
+		// Check special case for some extensions
+		switch {
+		case strings.HasSuffix(file.Extension, "boot-boe.img.xz"):
+			sb.WriteString("-boot-boe")
+		case strings.HasSuffix(file.Extension, "boot-csot.img.xz"):
+			sb.WriteString("-boot-csot")
+		case strings.HasSuffix(file.Extension, "rootfs.img.xz"):
+			sb.WriteString("-rootfs")
 		}
 
 		if strings.HasSuffix(file.Extension, "img.xz") {
