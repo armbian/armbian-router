@@ -133,12 +133,18 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 
 		// Check special case for some extensions
 		switch {
+		case strings.HasSuffix(file.Extension, "boot-sms.img.xz"):
+			sb.WriteString("-boot-sms")
 		case strings.HasSuffix(file.Extension, "boot-boe.img.xz"):
 			sb.WriteString("-boot-boe")
 		case strings.HasSuffix(file.Extension, "boot-csot.img.xz"):
 			sb.WriteString("-boot-csot")
 		case strings.HasSuffix(file.Extension, "rootfs.img.xz"):
 			sb.WriteString("-rootfs")
+		case strings.HasSuffix(file.Extension, "img.qcow2.xz"):
+			sb.WriteString("-qcow2")
+		case strings.HasSuffix(file.Extension, "oowow.img.xz"):
+			sb.WriteString("-oowow")
 		}
 
 		if strings.HasSuffix(file.Extension, "img.xz") {
