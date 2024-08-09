@@ -5,8 +5,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/samber/lo"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +13,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/samber/lo"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -273,7 +274,7 @@ func (v *VersionCheck) Check(server *Server, logFields log.Fields) (bool, error)
 		return false, err
 	}
 
-	controlPath := path.Join(server.Path, ".control")
+	controlPath := path.Join(server.Path, "control")
 
 	u := &url.URL{
 		Scheme: "https",
@@ -286,7 +287,6 @@ func (v *VersionCheck) Check(server *Server, logFields log.Fields) (bool, error)
 	}
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-
 	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
 
 	if err != nil {
