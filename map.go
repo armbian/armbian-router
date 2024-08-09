@@ -144,7 +144,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		case strings.HasSuffix(file.Extension, "img.qcow2.xz"):
 			sb.WriteString("-qcow2")
 		case strings.HasSuffix(file.Extension, "oowow.img.xz"):
-			sb.WriteString("-oowow")
+			sb.WriteString("")
 		}
 
 		if strings.HasSuffix(file.Extension, "img.xz") {
