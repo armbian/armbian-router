@@ -3,15 +3,16 @@ package redirector
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/armbian/redirector/db"
-	"github.com/jmcvetta/randutil"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/armbian/redirector/db"
+	"github.com/jmcvetta/randutil"
+	log "github.com/sirupsen/logrus"
 )
 
 // statusHandler is a simple handler that will always return 200 OK with a body of "OK"
@@ -108,10 +109,18 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 	redirectPath := path.Join(server.Path, req.URL.Path)
 
 	// If we have a dlMap, we map the url to a final path instead
+	var isGithub bool
 	if r.dlMap != nil {
 		if newPath, exists := r.dlMap[strings.TrimLeft(req.URL.Path, "/")]; exists {
 			downloadsMapped.Inc()
-			redirectPath = path.Join(server.Path, newPath)
+
+			// OS, community and distribution images are hosted at Github
+			if strings.Contains(newPath, "/armbian/") {
+				redirectPath = newPath
+				isGithub = true
+			} else {
+				redirectPath = path.Join(server.Path, newPath)
+			}
 		}
 	}
 
@@ -124,6 +133,11 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 		Scheme: scheme,
 		Host:   server.Host,
 		Path:   redirectPath,
+	}
+
+	// Some images are hosted at Github, we have to redirect them to the correct URL
+	if isGithub {
+		u.Host = "github.com"
 	}
 
 	server.Redirects.Inc()
