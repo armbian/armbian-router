@@ -148,7 +148,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		case strings.HasSuffix(file.Extension, "img.qcow2.xz"):
 			sb.WriteString("-qcow2")
 		case strings.HasSuffix(file.Extension, "oowow.img.xz"):
-			sb.WriteString("-oowow")
+			sb.WriteString("")
 		}
 
 		// Add board into the map without an extension
