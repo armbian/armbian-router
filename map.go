@@ -115,6 +115,10 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 
 		var sb strings.Builder
 
+		if file.Repository == "os" {
+			sb.WriteString("nightly/")
+		}
+
 		sb.WriteString(file.BoardSlug)
 		sb.WriteString("/")
 		sb.WriteString(distroCaser.String(file.DistroRelease))
@@ -147,6 +151,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 			sb.WriteString("-oowow")
 		}
 
+		// Add board into the map without an extension
 		if strings.HasSuffix(file.Extension, "img.xz") {
 			m[sb.String()] = u.Path
 		}
@@ -163,7 +168,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 			sb.WriteString(file.Extension)
 		}
 
-		m[sb.String()] = u.Path
+		m[sb.String()] = u.Path // Add board into the map with an extension
 	}
 
 	return m, nil
