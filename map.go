@@ -125,10 +125,10 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		sb.WriteString("_")
 		sb.WriteString(file.KernelBranch)
 
-		if file.ImageVariant != "server" {
+		//if file.ImageVariant != "server" {
 			sb.WriteString("_")
 			sb.WriteString(file.ImageVariant)
-		}
+		//}
 
 		if file.Preinstalled != "" {
 			sb.WriteString("-")
