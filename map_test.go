@@ -16,74 +16,74 @@ var _ = Describe("Map", func() {
 	})
 	It("Should successfully load the map from a JSON file", func() {
 		data := `{
-  "assets": [
-    {
-      "board_slug": "aml-s9xx-box",
-      "armbian_version": "23.11.1",
-      "file_url": "https://dl.armbian.com/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz",
-      "file_updated": "2023-11-30T01:14:49Z",
-      "file_size": "566235552",
-      "distro_release": "bookworm",
-      "kernel_branch": "current",
-      "image_variant": "server",
-      "preinstalled_application": "",
-      "promoted": "true",
-      "download_repository": "archive",
-      "file_extension": "img.xz"
-    }
-  ]
-}`
+		  "assets": [
+		    {
+		      "board_slug": "aml-s9xx-box",
+		      "armbian_version": "23.11.1",
+		      "file_url": "https://dl.armbian.com/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz",
+		      "file_updated": "2023-11-30T01:14:49Z",
+		      "file_size": "566235552",
+		      "distro_release": "bookworm",
+		      "kernel_branch": "current",
+		      "image_variant": "server",
+		      "preinstalled_application": "",
+		      "promoted": "true",
+		      "download_repository": "archive",
+		      "file_extension": "img.xz"
+		    }
+		  ]
+		}`
 
 		m, err := loadMapJSON(strings.NewReader(data))
 
 		Expect(err).To(BeNil())
-		Expect(m["aml-s9xx-box/Bookworm_current"]).To(Equal("/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz"))
+		Expect(m["aml-s9xx-box/Bookworm_current_server"]).To(Equal("/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz"))
 	})
 
 	It("Should successfully load the map from a JSON file, rewriting extension paths as necessary", func() {
 		data := `{
-  "assets": [
-    {
-		"board_slug": "khadas-vim1",
-		"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
-		"file_updated": "2023-11-30T01:06:34Z",
-		"file_size": "1605260504",
-		"distro_release": "bookworm",
-		"kernel_branch": "current",
-		"image_variant": "xfce",
-		"preinstalled_application": "",
-		"promoted": "false",
-		"download_repository": "archive",
-		"file_extension": "img.xz"
-	},
-	{
-		"board_slug": "khadas-vim1",
-		"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha",
-		"file_updated": "2023-11-30T01:06:34Z",
-		"file_size": "1605260504",
-		"distro_release": "bookworm",
-		"kernel_branch": "current",
-		"image_variant": "xfce",
-		"preinstalled_application": "",
-		"promoted": "false",
-		"download_repository": "archive",
-		"file_extension": "img.xz.sha"
-	},
-	{
-		"board_slug": "khadas-vim1",
-		"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
-		"file_updated": "2023-11-30T01:06:34Z",
-		"file_size": "1605260504",
-		"distro_release": "bookworm",
-		"kernel_branch": "current",
-		"image_variant": "xfce",
-		"preinstalled_application": "test",
-		"promoted": "false",
-		"download_repository": "archive",
-		"file_extension": "img.xz"
-	}
-  ]
-}`
+		  "assets": [
+		    {
+				"board_slug": "khadas-vim1",
+				"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
+				"file_updated": "2023-11-30T01:06:34Z",
+				"file_size": "1605260504",
+				"distro_release": "bookworm",
+				"kernel_branch": "current",
+				"image_variant": "xfce",
+				"preinstalled_application": "",
+				"promoted": "false",
+				"download_repository": "archive",
+				"file_extension": "img.xz"
+			},
+			{
+				"board_slug": "khadas-vim1",
+				"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha",
+				"file_updated": "2023-11-30T01:06:34Z",
+				"file_size": "1605260504",
+				"distro_release": "bookworm",
+				"kernel_branch": "current",
+				"image_variant": "xfce",
+				"preinstalled_application": "",
+				"promoted": "false",
+				"download_repository": "archive",
+				"file_extension": "img.xz.sha"
+			},
+			{
+				"board_slug": "khadas-vim1",
+				"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
+				"file_updated": "2023-11-30T01:06:34Z",
+				"file_size": "1605260504",
+				"distro_release": "bookworm",
+				"kernel_branch": "current",
+				"image_variant": "xfce",
+				"preinstalled_application": "test",
+				"promoted": "false",
+				"download_repository": "archive",
+				"file_extension": "img.xz"
+			}
+		  ]
+		}`
 
 		m, err := loadMapJSON(strings.NewReader(data))
 
@@ -136,6 +136,51 @@ var _ = Describe("Map", func() {
       "promoted": "true",
       "download_repository": "archive",
       "file_extension": "oowow.img.xz.sha"
+    },
+	{
+      "board_slug": "uefi-arm64",
+      "armbian_version": "24.5.5",
+      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz",
+      "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal",
+      "file_updated": "2024-07-25T18:01:20Z",
+      "file_size": "673315888",
+      "distro_release": "bookworm",
+      "kernel_branch": "current",
+      "image_variant": "minimal",
+      "preinstalled_application": "",
+      "promoted": "false",
+      "download_repository": "archive",
+      "file_extension": "img.qcow2.xz"
+    },
+    {
+      "board_slug": "uefi-arm64",
+      "armbian_version": "24.5.5",
+      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.asc",
+      "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal.asc",
+      "file_updated": "2024-07-25T18:01:20Z",
+      "file_size": "833",
+      "distro_release": "bookworm",
+      "kernel_branch": "current",
+      "image_variant": "minimal",
+      "preinstalled_application": "",
+      "promoted": "false",
+      "download_repository": "archive",
+      "file_extension": "img.qcow2.xz.asc"
+    },
+    {
+      "board_slug": "uefi-arm64",
+      "armbian_version": "24.5.5",
+      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.sha",
+      "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal.sha",
+      "file_updated": "2024-07-25T18:01:20Z",
+      "file_size": "194",
+      "distro_release": "bookworm",
+      "kernel_branch": "current",
+      "image_variant": "minimal",
+      "preinstalled_application": "",
+      "promoted": "false",
+      "download_repository": "archive",
+      "file_extension": "img.qcow2.xz.sha"
     }
   ]
 }`
@@ -143,8 +188,12 @@ var _ = Describe("Map", func() {
 		m, err := loadMapJSON(strings.NewReader(data))
 
 		Expect(err).To(BeNil())
-		Expect(m["khadas-vim4/Bookworm_legacy"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz"))
-		Expect(m["khadas-vim4/Bookworm_legacy.asc"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.asc"))
-		Expect(m["khadas-vim4/Bookworm_legacy.sha"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.sha"))
+		Expect(m["khadas-vim4/Bookworm_legacy_server"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz"))
+		Expect(m["khadas-vim4/Bookworm_legacy_server.asc"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.asc"))
+		Expect(m["khadas-vim4/Bookworm_legacy_server.sha"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.sha"))
+
+		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz"))
+		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.asc"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.asc"))
+		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.sha"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.sha"))
 	})
 })
