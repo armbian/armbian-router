@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -126,8 +127,8 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		sb.WriteString(file.KernelBranch)
 
 		//if file.ImageVariant != "server" {
-			sb.WriteString("_")
-			sb.WriteString(file.ImageVariant)
+		sb.WriteString("_")
+		sb.WriteString(file.ImageVariant)
 		//}
 
 		if file.Preinstalled != "" {
@@ -137,22 +138,20 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 
 		// Check special case for some extensions
 		switch {
-		case strings.HasSuffix(file.Extension, "boot-sms.img.xz"):
+		case strings.Contains(file.Extension, "boot-sms.img.xz"):
 			sb.WriteString("-boot-sms")
-		case strings.HasSuffix(file.Extension, "boot-boe.img.xz"):
+		case strings.Contains(file.Extension, "boot-boe.img.xz"):
 			sb.WriteString("-boot-boe")
-		case strings.HasSuffix(file.Extension, "boot-csot.img.xz"):
+		case strings.Contains(file.Extension, "boot-csot.img.xz"):
 			sb.WriteString("-boot-csot")
-		case strings.HasSuffix(file.Extension, "rootfs.img.xz"):
+		case strings.Contains(file.Extension, "rootfs.img.xz"):
 			sb.WriteString("-rootfs")
-		case strings.HasSuffix(file.Extension, "img.qcow2.xz"):
+		case strings.Contains(file.Extension, "img.qcow2.xz"):
 			sb.WriteString("-qcow2")
-		case strings.HasSuffix(file.Extension, "oowow.img.xz"):
-			sb.WriteString("")
 		}
 
 		// Add board into the map without an extension
-		if strings.HasSuffix(file.Extension, "img.xz") {
+		if strings.HasSuffix(file.Extension, "img.xz") || strings.HasSuffix(file.Extension, "img.qcow2.xz") {
 			m[sb.String()] = u.Path
 		}
 
