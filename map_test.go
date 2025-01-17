@@ -95,7 +95,7 @@ var _ = Describe("Map", func() {
 	It("Should work with files that have weird extensions", func() {
 		data := `{
   "assets": [
-    {
+	{
       "board_slug": "khadas-vim4",
       "armbian_version": "23.11.1",
       "file_url": "https://dl.armbian.com/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz",
@@ -181,6 +181,21 @@ var _ = Describe("Map", func() {
       "promoted": "false",
       "download_repository": "archive",
       "file_extension": "img.qcow2.xz.sha"
+    },
+	{
+      "board_slug": "qemu-uboot-arm64",
+      "armbian_version": "24.8.0-trunk.542",
+      "file_url": "https://github.com/armbian/os/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz",
+      "redi_url": "https://dl.armbian.com/qemu-uboot-arm64/Bookworm_current_minimal",
+      "file_updated": "2024-08-09T10:07:43Z",
+      "file_size": "314832",
+      "distro_release": "bookworm",
+      "kernel_branch": "current",
+      "image_variant": "minimal",
+      "preinstalled_application": "",
+      "promoted": "false",
+      "download_repository": "os",
+      "file_extension": "boot.bin.xz"
     }
   ]
 }`
@@ -195,5 +210,9 @@ var _ = Describe("Map", func() {
 		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz"))
 		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.asc"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.asc"))
 		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.sha"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.sha"))
+
+		Expect(m["nightly/qemu-uboot-arm64/Bookworm_current_minimal-uboot-bin"]).To(Equal("/armbian/os/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz"))
+		Expect(m["nightly/qemu-uboot-arm64/Bookworm_current_minimal-uboot-bin.boot.bin.xz"]).To(Equal("/armbian/os/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz"))
+
 	})
 })
