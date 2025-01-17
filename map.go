@@ -88,6 +88,8 @@ type ReleaseFile struct {
 
 var distroCaser = cases.Title(language.Und)
 
+var imageExtensions = []string{"img.xz", "img.qcow2.xz", "boot.bin.xz"}
+
 // loadMapJSON loads a map file from JSON, based on the format specified in the github issue.
 // See: https://github.com/armbian/os/pull/129
 func loadMapJSON(f io.Reader) (map[string]string, error) {
@@ -124,11 +126,8 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		sb.WriteString(distroCaser.String(file.DistroRelease))
 		sb.WriteString("_")
 		sb.WriteString(file.KernelBranch)
-
-		//if file.ImageVariant != "server" {
 		sb.WriteString("_")
 		sb.WriteString(file.ImageVariant)
-		//}
 
 		if file.Preinstalled != "" {
 			sb.WriteString("-")
@@ -147,11 +146,16 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 			sb.WriteString("-rootfs")
 		case strings.Contains(file.Extension, "img.qcow2.xz"):
 			sb.WriteString("-qcow2")
+		case strings.Contains(file.Extension, "boot.bin.xz"):
+			sb.WriteString("-uboot-bin")
 		}
 
 		// Add board into the map without an extension
-		if strings.HasSuffix(file.Extension, "img.xz") || strings.HasSuffix(file.Extension, "img.qcow2.xz") {
-			m[sb.String()] = u.Path
+		for _, ext := range imageExtensions {
+			if strings.HasSuffix(file.Extension, ext) {
+				m[sb.String()] = u.Path
+				break
+			}
 		}
 
 		sb.WriteString(".")
