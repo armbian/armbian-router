@@ -1,15 +1,22 @@
 FROM golang:alpine AS builder
 
-ADD . /src
-
 WORKDIR /src
 
-RUN apk add --no-cache git && \
-	export CGO_ENABLED=0 && \
-    go build -o /src/dlrouter
+# Copy go mod and project files
+COPY go.* .
+RUN go mod download
+COPY . .
 
-FROM alpine
+# Install necessary dependencies
+RUN apk update && apk add --no-cache git ca-certificates openssl && update-ca-certificates
 
-COPY --from=builder /src/dlrouter /usr/bin/dlrouter
+# Build the binary
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o ./dlrouter ./cmd/main.go
 
-CMD "/usr/bin/dlrouter"
+FROM gcr.io/distroless/static:nonroot
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+
+# Copy the binary from the builder stage
+COPY --from=builder /src/dlrouter /bin/dlrouter
+
+CMD ["/bin/dlrouter"]
