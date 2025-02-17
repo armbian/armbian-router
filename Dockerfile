@@ -3,7 +3,7 @@ FROM golang:alpine AS builder
 WORKDIR /src
 
 # Copy go mod and project files
-COPY go.* .
+COPY go.* ./
 RUN go mod download
 COPY . .
 
