@@ -3,6 +3,14 @@ package redirector
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/armbian/redirector/db"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
@@ -11,12 +19,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
-	"net"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
-	"time"
 )
 
 // Config represents our application's configuration.
@@ -281,6 +283,7 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		Continent: server.Continent,
 		Weight:    server.Weight,
 		Protocols: []string{"http", "https"},
+		Rules:     server.Rules,
 	}
 
 	if len(server.Protocols) > 0 {
