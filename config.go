@@ -3,7 +3,6 @@ package redirector
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"net/http"
 	"net/url"
