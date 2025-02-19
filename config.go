@@ -94,7 +94,6 @@ func (r *Redirector) ReloadConfig() error {
 	// Load maxmind database
 	if r.db != nil {
 		err = r.db.Close()
-
 		if err != nil {
 			return errors.Wrap(err, "Unable to close database")
 		}
@@ -102,7 +101,6 @@ func (r *Redirector) ReloadConfig() error {
 
 	if r.asnDB != nil {
 		err = r.asnDB.Close()
-
 		if err != nil {
 			return errors.Wrap(err, "Unable to close asn database")
 		}
@@ -110,14 +108,12 @@ func (r *Redirector) ReloadConfig() error {
 
 	// db can be hot-reloaded if the file changed
 	r.db, err = maxminddb.Open(r.config.GeoDBPath)
-
 	if err != nil {
 		return errors.Wrap(err, "Unable to open database")
 	}
 
 	if r.config.ASNDBPath != "" {
 		r.asnDB, err = maxminddb.Open(r.config.ASNDBPath)
-
 		if err != nil {
 			return errors.Wrap(err, "Unable to open asn database")
 		}
@@ -145,21 +141,16 @@ func (r *Redirector) ReloadConfig() error {
 
 	// Create mirror map
 	mirrors := make(map[string][]*Server)
-
 	for _, server := range r.servers {
 		mirrors[server.Continent] = append(mirrors[server.Continent], server)
 	}
-
 	mirrors["default"] = append(mirrors["NA"], mirrors["EU"]...)
-
 	r.regionMap = mirrors
 
 	hosts := make(map[string]*Server)
-
 	for _, server := range r.servers {
 		hosts[server.Host] = server
 	}
-
 	r.hostMap = hosts
 
 	// Check top choices size
@@ -180,26 +171,20 @@ func (r *Redirector) reloadServers() error {
 	var wg sync.WaitGroup
 
 	existing := make(map[string]int)
-
 	for i, server := range r.servers {
 		existing[server.Host] = i
 	}
 
 	hosts := make(map[string]bool)
-
 	var hostsLock sync.Mutex
 
 	for _, server := range r.config.ServerList {
 		wg.Add(1)
-
 		var prefix string
-
 		if !strings.HasPrefix(server.Server, "http") {
 			prefix = "https://"
 		}
-
 		u, err := url.Parse(prefix + server.Server)
-
 		if err != nil {
 			log.WithFields(log.Fields{
 				"error":  err,
@@ -209,42 +194,35 @@ func (r *Redirector) reloadServers() error {
 		}
 
 		i := -1
-
 		if v, exists := existing[u.Host]; exists {
 			i = v
 		}
 
 		go func(i int, server ServerConfig, u *url.URL) {
 			defer wg.Done()
-
 			s, err := r.addServer(server, u)
-
 			if err != nil {
 				log.WithError(err).Warning("Unable to add server")
 				return
 			}
-
 			hostsLock.Lock()
 			hosts[u.Host] = true
 			hostsLock.Unlock()
-
 			if _, ok := existing[u.Host]; ok {
 				s.Redirects = r.servers[i].Redirects
-
 				r.servers[i] = s
 			} else {
 				s.Redirects = promauto.NewCounter(prometheus.CounterOpts{
 					Name: "armbian_router_redirects_" + metricReplacer.Replace(u.Host),
 					Help: "The number of redirects for server " + u.Host,
 				})
-
 				r.servers = append(r.servers, s)
-
 				log.WithFields(log.Fields{
 					"server":    u.Host,
 					"path":      u.Path,
 					"latitude":  s.Latitude,
 					"longitude": s.Longitude,
+					"country": s.Country,
 				}).Info("Added server")
 			}
 		}(i, server, u)
@@ -257,11 +235,9 @@ func (r *Redirector) reloadServers() error {
 		if _, exists := hosts[r.servers[i].Host]; exists {
 			continue
 		}
-
 		log.WithFields(log.Fields{
 			"server": r.servers[i].Host,
 		}).Info("Removed server")
-
 		r.servers = append(r.servers[:i], r.servers[i+1:]...)
 	}
 
@@ -284,7 +260,6 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		Protocols: []string{"http", "https"},
 		Rules:     server.Rules,
 	}
-
 	if len(server.Protocols) > 0 {
 		for _, proto := range server.Protocols {
 			if !lo.Contains(s.Protocols, proto) {
@@ -292,14 +267,11 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 			}
 		}
 	}
-
 	// Defaults to 10 to allow servers to be set lower for lower priority
 	if s.Weight == 0 {
 		s.Weight = 10
 	}
-
 	ips, err := net.LookupIP(u.Host)
-
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error":  err,
@@ -307,10 +279,8 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		}).Warning("Could not resolve address")
 		return nil, err
 	}
-
 	var city db.City
 	err = r.db.Lookup(ips[0], &city)
-
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error":  err,
@@ -319,35 +289,27 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		}).Warning("Could not geolocate address")
 		return nil, err
 	}
-
+	s.Country = city.Country.IsoCode
 	if s.Continent == "" {
 		s.Continent = city.Continent.Code
 	}
-
 	if s.Latitude == 0 && s.Longitude == 0 {
 		s.Latitude = city.Location.Latitude
 		s.Longitude = city.Location.Longitude
 	}
-
 	return s, nil
 }
 
 func (r *Redirector) reloadMap() error {
 	mapFile := r.config.MapFile
-
 	if mapFile == "" {
 		return nil
 	}
-
 	log.WithField("file", mapFile).Info("Loading download map")
-
 	newMap, err := loadMapFile(mapFile)
-
 	if err != nil {
 		return err
 	}
-
 	r.dlMap = newMap
-
 	return nil
 }
