@@ -235,24 +235,17 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 			return false
 		}
 		return true
-	})	
-
+	})
+	
 	if len(validServers) < 2 {
-		log.Warn("Few servers passed filtering; falling back to full server list")
 		validServers = s
 	}
-	
-	for _, server := range validServers {
-		log.Infof("Valid server: %s, Country: %s", server.Host, server.Country)
-	}
-	
 	localServers := lo.Filter(validServers, func(server *Server, _ int) bool {
 		return server.Country == clientCountry
 	})
-	log.Infof("Found %d local servers for country %s", len(localServers), clientCountry)
-	
-	const sameCityThreshold = 50000.0 // 50 km
-	
+
+	const sameCityThreshold = 20000000.0 // 200 km
+
 	if len(localServers) > 0 {
 		computedLocal := lo.Map(localServers, func(server *Server, _ int) ComputedDistance {
 			d := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
@@ -264,7 +257,6 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 		sort.Slice(computedLocal, func(i, j int) bool {
 			return computedLocal[i].Distance < computedLocal[j].Distance
 		})
-		log.Infof("Nearest local server: %s, distance: %.2f m", computedLocal[0].Server.Host, computedLocal[0].Distance)
 		if computedLocal[0].Distance < sameCityThreshold {
 			chosen := computedLocal[0]
 			r.serverCache.Add(cacheKey, chosen)
@@ -290,8 +282,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 		dist := choice.Item.(ComputedDistance)
 		return dist.Server, dist.Distance, nil
 	}
-	
-	// Fallback
+	// Fallback: if no local servers exist, simply select the nearest server among all valid servers.
 	computed := lo.Map(validServers, func(server *Server, _ int) ComputedDistance {
 		d := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
 		return ComputedDistance{
