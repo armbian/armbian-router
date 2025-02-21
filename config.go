@@ -47,6 +47,9 @@ type Config struct {
 	// CheckURL is the url used to verify mirror versions
 	CheckURL string `mapstructure:"checkUrl"`
 
+	// SameCityThreshold is the parameter used to specify a threshold between mirrors and the client
+	SameCityThreshold float64 `mapstructure:"sameCityThreshold"`
+
 	// ServerList is a list of ServerConfig structs, which gets parsed into servers.
 	ServerList []ServerConfig `mapstructure:"servers"`
 
@@ -158,6 +161,11 @@ func (r *Redirector) ReloadConfig() error {
 		r.config.TopChoices = 3
 	} else if r.config.TopChoices > len(r.servers) {
 		r.config.TopChoices = len(r.servers)
+	}
+
+    // Check if on the config is declared or use default logic
+	if r.config.SameCityThreshold == 0 {
+		r.config.SameCityThreshold = 200000.0
 	}
 
 	// Force check
