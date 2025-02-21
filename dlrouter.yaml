@@ -3,6 +3,8 @@ geodb: GeoLite2-City.mmdb
 asndb: GeoLite2-ASN.mmdb
 dl_map: userdata.csv
 
+sameCityThreshold: 200000.0
+
 checkUrl: https://imola.armbian.com/apt/.control
 
 # LRU Cache Size (in items)
