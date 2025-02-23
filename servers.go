@@ -196,6 +196,35 @@ type ComputedDistance struct {
 // it is selected deterministically; otherwise, a weighted selection is used.
 // If no local servers exist, it falls back to a weighted selection among all valid servers.
 func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, float64, error) {
+	choices, err := s.Choices(r, scheme, ip)
+
+	if err != nil {
+		return nil, -1, err
+	}
+
+	// Fast path to avoid weighted selection
+	if len(choices) == 1 {
+		dist := choices[0].Item.(ComputedDistance)
+		return dist.Server, dist.Distance, nil
+	}
+
+	// Choose a "random" but influenced decision on the server list.
+	// With the MaxDeviation code, this would prefer things like faster (10Gb) networks and other
+	// factors, like potentially bandwidth providers,
+	// Ideally, this would also be influenced by distance with the closest being weighted higher?
+	choice, err := randutil.WeightedChoice(choices)
+
+	if err != nil {
+		log.WithError(err).Warning("Unable to choose a weighted choice")
+		return nil, -1, err
+	}
+
+	dist := choice.Item.(ComputedDistance)
+	return dist.Server, dist.Distance, nil
+}
+
+// Choices is the internal logic of Closest, allowing us to compare all choices
+func (s ServerList) Choices(r *Redirector, scheme string, ip net.IP) ([]randutil.Choice, error) {
 	cacheKey := scheme + "_" + ip.String()
 
 	cached, exists := r.serverCache.Get(cacheKey)
@@ -212,7 +241,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 			// Validate server is available to our health checks
 			// Since Server is a pointer, this will always be up to date.
 			if closest.Server.Available {
-				return closest.Server, closest.Distance, nil
+				return choices, nil
 			}
 
 			// Server went offline during the cache period, re-evaluate choices
@@ -226,7 +255,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 
 		if err := r.db.Lookup(ip, &city); err != nil {
 			log.WithError(err).Warning("Unable to lookup client location")
-			return nil, -1, err
+			return nil, err
 		}
 
 		var asn db.ASN
@@ -234,7 +263,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 		if r.asnDB != nil {
 			if err := r.asnDB.Lookup(ip, &asn); err != nil {
 				log.WithError(err).Warning("Unable to load ASN information")
-				return nil, -1, err
+				return nil, err
 			}
 		}
 
@@ -306,25 +335,7 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 	// There is code to specifically bypass the random selection when this is the case
 	r.serverCache.Add(cacheKey, choices)
 
-	// Fast path to avoid weighted selection
-	if len(choices) == 1 {
-		dist := choices[0].Item.(ComputedDistance)
-		return dist.Server, dist.Distance, nil
-	}
-
-	// Choose a "random" but influenced decision on the server list.
-	// With the MaxDeviation code, this would prefer things like faster (10Gb) networks and other
-	// factors, like potentially bandwidth providers,
-	// Ideally, this would also be influenced by distance with the closest being weighted higher?
-	choice, err := randutil.WeightedChoice(choices)
-
-	if err != nil {
-		log.WithError(err).Warning("Unable to choose a weighted choice")
-		return nil, -1, err
-	}
-
-	dist := choice.Item.(ComputedDistance)
-	return dist.Server, dist.Distance, nil
+	return choices, nil
 }
 
 // haversin(θ) function
