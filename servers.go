@@ -196,134 +196,135 @@ type ComputedDistance struct {
 // it is selected deterministically; otherwise, a weighted selection is used.
 // If no local servers exist, it falls back to a weighted selection among all valid servers.
 func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, float64, error) {
-    cacheKey := scheme + "_" + ip.String()
+	cacheKey := scheme + "_" + ip.String()
 
-    if cached, exists := r.serverCache.Get(cacheKey); exists {
-        if comp, ok := cached.(ComputedDistance); ok {
-            log.Infof("Cache hit: %s", comp.Server.Host)
-            return comp.Server, comp.Distance, nil
-        }
-        r.serverCache.Remove(cacheKey)
-    }
+	cached, exists := r.serverCache.Get(cacheKey)
 
-    var city db.City
-    if err := r.db.Lookup(ip, &city); err != nil {
-        log.WithError(err).Warning("Unable to lookup client location")
-        return nil, -1, err
-    }
-    clientCountry := city.Country.IsoCode
+	var choices []randutil.Choice
 
-    var asn db.ASN
-    if r.asnDB != nil {
-        if err := r.asnDB.Lookup(ip, &asn); err != nil {
-            log.WithError(err).Warning("Unable to load ASN information")
-            return nil, -1, err
-        }
-    }
+	if exists {
+		choices = cached.([]randutil.Choice)
 
-    ruleInput := RuleInput{
-        IP:       ip.String(),
-        ASN:      asn,
-        Location: city,
-    }
+		// Fast path for single servers
+		if len(choices) == 1 {
+			closest := choices[0].Item.(ComputedDistance)
 
-    validServers := lo.Filter(s, func(server *Server, _ int) bool {
-        if !server.Available || !lo.Contains(server.Protocols, scheme) {
-            return false
-        }
-        if len(server.Rules) > 0 && !server.checkRules(ruleInput) {
-            log.WithField("host", server.Host).Debug("Skipping server due to rules")
-            return false
-        }
-        return true
-    })
+			// Validate server is available to our health checks
+			// Since Server is a pointer, this will always be up to date.
+			if closest.Server.Available {
+				return closest.Server, closest.Distance, nil
+			}
 
-    if len(validServers) < 2 {
-        validServers = s
-    }
+			// Server went offline during the cache period, re-evaluate choices
+			exists = false
+		}
+	}
 
-    localServers := lo.Filter(validServers, func(server *Server, _ int) bool {
-        return server.Country == clientCountry
-    })
+	// This isn't an else statement as exists can be set to false when the closest is offline
+	if !exists {
+		var city db.City
 
-    if len(localServers) > 0 {
-        computedLocal := lo.Map(localServers, func(server *Server, _ int) ComputedDistance {
-            d := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
-            return ComputedDistance{
-                Server:   server,
-                Distance: d,
-            }
-        })
+		if err := r.db.Lookup(ip, &city); err != nil {
+			log.WithError(err).Warning("Unable to lookup client location")
+			return nil, -1, err
+		}
 
-        sort.Slice(computedLocal, func(i, j int) bool {
-            return computedLocal[i].Distance < computedLocal[j].Distance
-        })
+		var asn db.ASN
 
-        if computedLocal[0].Distance < r.config.SameCityThreshold {
-            chosen := computedLocal[0]
-            r.serverCache.Add(cacheKey, chosen)
-            return chosen.Server, chosen.Distance, nil
-        }
+		if r.asnDB != nil {
+			if err := r.asnDB.Lookup(ip, &asn); err != nil {
+				log.WithError(err).Warning("Unable to load ASN information")
+				return nil, -1, err
+			}
+		}
 
-        choiceCount := r.config.TopChoices
-        if len(computedLocal) < choiceCount {
-            choiceCount = len(computedLocal)
-        }
+		// TODO: Use a provider pattern for the db.City and db.ASN fields, allowing for testing/mocking
+		// This would also allow the use of HTTP APIs for lookups instead of just local databases
 
-        choices := make([]randutil.Choice, choiceCount)
-        for i, item := range computedLocal[:choiceCount] {
-            choices[i] = randutil.Choice{
-                Weight: item.Server.Weight,
-                Item:   item,
-            }
-        }
+		ruleInput := RuleInput{
+			IP:       ip.String(),
+			ASN:      asn,
+			Location: city,
+		}
 
-        choice, err := randutil.WeightedChoice(choices)
-        if err != nil {
-            log.WithError(err).Warning("Unable to choose a weighted choice")
-            return nil, -1, err
-        }
+		validServers := lo.Filter(s, func(server *Server, _ int) bool {
+			if !server.Available || !lo.Contains(server.Protocols, scheme) {
+				return false
+			}
 
-        dist := choice.Item.(ComputedDistance)
-        r.serverCache.Add(cacheKey, dist)
-        return dist.Server, dist.Distance, nil
-    }
+			if len(server.Rules) > 0 && !server.checkRules(ruleInput) {
+				log.WithField("host", server.Host).Debug("Skipping server due to rules")
+				return false
+			}
 
-	// Fallback: if no local servers exist, simply select the nearest server among all valid servers.
-    computed := lo.Map(validServers, func(server *Server, _ int) ComputedDistance {
-        d := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
-        return ComputedDistance{
-            Server:   server,
-            Distance: d,
-        }
-    })
+			return true
+		})
 
-    sort.Slice(computed, func(i, j int) bool {
-        return computed[i].Distance < computed[j].Distance
-    })
+		if len(validServers) < 2 {
+			validServers = s
+		}
 
-    choiceCount := r.config.TopChoices
-    if len(computed) < choiceCount {
-        choiceCount = len(computed)
-    }
+		computed := lo.Map(validServers, func(server *Server, _ int) ComputedDistance {
+			d := Distance(city.Location.Latitude, city.Location.Longitude, server.Latitude, server.Longitude)
+			return ComputedDistance{
+				Server:   server,
+				Distance: d,
+			}
+		})
 
-    choices := make([]randutil.Choice, choiceCount)
-    for i, item := range computed[:choiceCount] {
-        choices[i] = randutil.Choice{
-            Weight: item.Server.Weight,
-            Item:   item,
-        }
-    }
+		sort.Slice(computed, func(i, j int) bool {
+			return computed[i].Distance < computed[j].Distance
+		})
 
-    choice, err := randutil.WeightedChoice(choices)
-    if err != nil {
-        log.WithError(err).Warning("Unable to choose a weighted choice")
-        return nil, -1, err
-    }
+		choiceCount := r.config.TopChoices
 
-    dist := choice.Item.(ComputedDistance)
-    r.serverCache.Add(cacheKey, dist)
-    return dist.Server, dist.Distance, nil
+		if len(computed) < choiceCount {
+			choiceCount = len(computed)
+		}
+
+		// Save our closest distance to compare others to ensure a good experience
+		closestDistance := computed[0].Distance
+
+		choices = make([]randutil.Choice, 0)
+
+		for _, item := range computed[:choiceCount] {
+			// Skip servers which are further away so we avoid a situation where
+			// we have a very close server, but also two somewhat far (500 km/miles+) servers
+			if item.Distance-closestDistance > r.config.MaxDeviation {
+				continue
+			}
+
+			choices = append(choices, randutil.Choice{
+				Weight: item.Server.Weight,
+				Item:   item,
+			})
+		}
+	}
+
+	// Cache all choices for a round-robin approach
+	// This is disabled by default, and can be enabled by using TopChoices > 1
+	// There is code to specifically bypass the random selection when this is the case
+	r.serverCache.Add(cacheKey, choices)
+
+	// Fast path to avoid weighted selection
+	if len(choices) == 1 {
+		dist := choices[0].Item.(ComputedDistance)
+		return dist.Server, dist.Distance, nil
+	}
+
+	// Choose a "random" but influenced decision on the server list.
+	// With the MaxDeviation code, this would prefer things like faster (10Gb) networks and other
+	// factors, like potentially bandwidth providers,
+	// Ideally, this would also be influenced by distance with the closest being weighted higher?
+	choice, err := randutil.WeightedChoice(choices)
+
+	if err != nil {
+		log.WithError(err).Warning("Unable to choose a weighted choice")
+		return nil, -1, err
+	}
+
+	dist := choice.Item.(ComputedDistance)
+	return dist.Server, dist.Distance, nil
 }
 
 // haversin(θ) function
