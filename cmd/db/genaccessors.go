@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/armbian/redirector/db"
+	"github.com/armbian/redirector/geo"
 	"github.com/samber/lo"
 	"reflect"
 	"strings"
@@ -15,11 +15,11 @@ var (
 // This is a VERY messy way to generate static recursive field getters, which transform rule strings
 // into the field value
 func main() {
-	var asn db.ASN
+	var asn geo.ASN
 
 	accessors(asn)
 
-	var city db.City
+	var city geo.City
 
 	accessors(city)
 	accessors(city.Continent)

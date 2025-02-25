@@ -10,7 +10,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/armbian/redirector/db"
 	"github.com/jmcvetta/randutil"
 	log "github.com/sirupsen/logrus"
 )
@@ -205,8 +204,7 @@ func (r *Redirector) geoIPHandler(w http.ResponseWriter, req *http.Request) {
 
 	ip := net.ParseIP(ipStr)
 
-	var city db.City
-	err = r.db.Lookup(ip, &city)
+	city, err := r.geo.City(ip)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

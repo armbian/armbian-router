@@ -1,8 +1,9 @@
 package redirector
 
 import (
+	"errors"
 	"fmt"
-	"github.com/armbian/redirector/db"
+	"github.com/armbian/redirector/geo"
 	"github.com/armbian/redirector/util"
 	"github.com/jmcvetta/randutil"
 	"github.com/prometheus/client_golang/prometheus"
@@ -179,9 +180,9 @@ func (s ServerList) Check(r *Redirector, checks []ServerCheck) {
 
 // RuleInput is a set of fields used for rule checks
 type RuleInput struct {
-	IP       string  `json:"ip"`
-	ASN      db.ASN  `json:"asn"`
-	Location db.City `json:"location"`
+	IP       string    `json:"ip"`
+	ASN      *geo.ASN  `json:"asn"`
+	Location *geo.City `json:"location"`
 }
 
 // ComputedDistance is a wrapper that contains a Server and Distance.
@@ -207,6 +208,10 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 		dist := choices[0].Item.(ComputedDistance)
 		return dist.Server, dist.Distance, nil
 	}
+
+	log.WithFields(log.Fields{
+		"choices": choices,
+	}).Debug("Found potential choices")
 
 	// Choose a "random" but influenced decision on the server list.
 	// With the MaxDeviation code, this would prefer things like faster (10Gb) networks and other
@@ -251,24 +256,21 @@ func (s ServerList) Choices(r *Redirector, scheme string, ip net.IP) ([]randutil
 
 	// This isn't an else statement as exists can be set to false when the closest is offline
 	if !exists {
-		var city db.City
+		city, err := r.geo.City(ip)
 
-		if err := r.db.Lookup(ip, &city); err != nil {
+		if err != nil {
 			log.WithError(err).Warning("Unable to lookup client location")
 			return nil, err
 		}
 
-		var asn db.ASN
+		asn, err := r.geo.ASN(ip)
 
-		if r.asnDB != nil {
-			if err := r.asnDB.Lookup(ip, &asn); err != nil {
+		if err != nil {
+			if !errors.Is(err, geo.ErrNoASN) {
 				log.WithError(err).Warning("Unable to load ASN information")
 				return nil, err
 			}
 		}
-
-		// TODO: Use a provider pattern for the db.City and db.ASN fields, allowing for testing/mocking
-		// This would also allow the use of HTTP APIs for lookups instead of just local databases
 
 		ruleInput := RuleInput{
 			IP:       ip.String(),
@@ -289,6 +291,10 @@ func (s ServerList) Choices(r *Redirector, scheme string, ip net.IP) ([]randutil
 			return true
 		})
 
+		log.WithFields(log.Fields{
+			"validServers": len(validServers),
+		}).Debug("Filtered to only valid servers")
+
 		if len(validServers) < 2 {
 			validServers = s
 		}
@@ -305,6 +311,14 @@ func (s ServerList) Choices(r *Redirector, scheme string, ip net.IP) ([]randutil
 			return computed[i].Distance < computed[j].Distance
 		})
 
+		for i, choice := range computed {
+			log.WithFields(log.Fields{
+				"index":    i,
+				"host":     choice.Server.Host,
+				"distance": choice.Distance,
+			}).Debug("Initial distances computed")
+		}
+
 		choiceCount := r.config.TopChoices
 
 		if len(computed) < choiceCount {
@@ -319,7 +333,14 @@ func (s ServerList) Choices(r *Redirector, scheme string, ip net.IP) ([]randutil
 		for _, item := range computed[:choiceCount] {
 			// Skip servers which are further away so we avoid a situation where
 			// we have a very close server, but also two somewhat far (500 km/miles+) servers
-			if item.Distance-closestDistance > r.config.MaxDeviation {
+			if r.config.MaxDeviation != 0 && item.Distance-closestDistance > r.config.MaxDeviation {
+				log.WithFields(log.Fields{
+					"host":            item.Server.Host,
+					"maxDeviation":    r.config.MaxDeviation,
+					"closestDistance": closestDistance,
+					"distance":        item.Distance,
+					"deviation":       item.Distance - closestDistance,
+				}).Debug("Skipping server due to being too far")
 				continue
 			}
 

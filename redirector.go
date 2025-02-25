@@ -1,11 +1,11 @@
 package redirector
 
 import (
+	"github.com/armbian/redirector/geo"
 	"github.com/armbian/redirector/middleware"
 	"github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/oschwald/maxminddb-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -28,8 +28,7 @@ var (
 // Redirector is our application instance.
 type Redirector struct {
 	config      *Config
-	db          *maxminddb.Reader
-	asnDB       *maxminddb.Reader
+	geo         geo.Provider
 	servers     ServerList
 	regionMap   map[string][]*Server
 	hostMap     map[string]*Server

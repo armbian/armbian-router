@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/armbian/redirector/db"
+	"github.com/armbian/redirector/geo"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -26,7 +26,7 @@ var (
 func GetValue(val any, key string) (any, bool) {
 	// Bypass reflection for known types
 	if strings.HasPrefix(key, "asn") || strings.HasPrefix(key, "city") {
-		return db.GetValue(val, key)
+		return geo.GetValue(val, key)
 	}
 
 	// Fallback to reflection
@@ -35,7 +35,7 @@ func GetValue(val any, key string) (any, bool) {
 
 // GetValue is a reflection helper like Laravel's data_get
 // It lets us use the syntax of some.field.nested in rules.
-// This is the slow path, see db.GetValue for the faster (somewhat generated) path
+// This is the slow path, see geo.GetValue for the faster (somewhat generated) path
 func getValueReflect(val any, key string) (any, bool) {
 	v := reflect.ValueOf(val)
 

@@ -3,7 +3,8 @@ geodb: GeoLite2-City.mmdb
 asndb: GeoLite2-ASN.mmdb
 dl_map: userdata.csv
 
-sameCityThreshold: 200000.0
+# Max distance to allow for other "nearby" servers
+maxDeviation: 50000
 
 checkUrl: https://imola.armbian.com/apt/.control
 
