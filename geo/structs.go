@@ -1,4 +1,4 @@
-package db
+package geo
 
 // City represents a MaxmindDB city.
 // This used to only be used on load, but is now used with rules as well.

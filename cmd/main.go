@@ -25,7 +25,8 @@ func main() {
 
 	viper.SetDefault("bind", ":8080")
 	viper.SetDefault("cacheSize", 1024)
-	viper.SetDefault("topChoices", 3)
+	viper.SetDefault("topChoices", 1)
+	viper.SetDefault("maxDeviation", 50*1000) // 50 kilometers
 	viper.SetDefault("reloadKey", util.RandomSequence(32))
 
 	viper.SetConfigName("dlrouter")        // name of config file (without extension)

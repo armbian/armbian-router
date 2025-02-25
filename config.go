@@ -10,9 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/armbian/redirector/db"
+	"github.com/armbian/redirector/geo"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/oschwald/maxminddb-golang"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -47,8 +46,9 @@ type Config struct {
 	// CheckURL is the url used to verify mirror versions
 	CheckURL string `mapstructure:"checkUrl"`
 
-	// SameCityThreshold is the parameter used to specify a threshold between mirrors and the client
-	SameCityThreshold float64 `mapstructure:"sameCityThreshold"`
+	// MaxDeviation is used when we have multiple servers that could be used,
+	// but one or more may be too far from the others
+	MaxDeviation float64 `mapstructure:"maxDeviation"`
 
 	// ServerList is a list of ServerConfig structs, which gets parsed into servers.
 	ServerList []ServerConfig `mapstructure:"servers"`
@@ -95,31 +95,17 @@ func (r *Redirector) ReloadConfig() error {
 	var err error
 
 	// Load maxmind database
-	if r.db != nil {
-		err = r.db.Close()
+	if r.geo != nil {
+		err = r.geo.Close()
 		if err != nil {
 			return errors.Wrap(err, "Unable to close database")
 		}
 	}
 
-	if r.asnDB != nil {
-		err = r.asnDB.Close()
-		if err != nil {
-			return errors.Wrap(err, "Unable to close asn database")
-		}
-	}
+	r.geo, err = geo.NewMaxmindProvider(r.config.GeoDBPath, r.config.ASNDBPath)
 
-	// db can be hot-reloaded if the file changed
-	r.db, err = maxminddb.Open(r.config.GeoDBPath)
 	if err != nil {
-		return errors.Wrap(err, "Unable to open database")
-	}
-
-	if r.config.ASNDBPath != "" {
-		r.asnDB, err = maxminddb.Open(r.config.ASNDBPath)
-		if err != nil {
-			return errors.Wrap(err, "Unable to open asn database")
-		}
+		return err
 	}
 
 	// Refresh server cache if size changed
@@ -161,11 +147,6 @@ func (r *Redirector) ReloadConfig() error {
 		r.config.TopChoices = 3
 	} else if r.config.TopChoices > len(r.servers) {
 		r.config.TopChoices = len(r.servers)
-	}
-
-    // Check if on the config is declared or use default logic
-	if r.config.SameCityThreshold == 0 {
-		r.config.SameCityThreshold = 200000.0
 	}
 
 	// Force check
@@ -230,7 +211,7 @@ func (r *Redirector) reloadServers() error {
 					"path":      u.Path,
 					"latitude":  s.Latitude,
 					"longitude": s.Longitude,
-					"country": s.Country,
+					"country":   s.Country,
 				}).Info("Added server")
 			}
 		}(i, server, u)
@@ -287,8 +268,9 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		}).Warning("Could not resolve address")
 		return nil, err
 	}
-	var city db.City
-	err = r.db.Lookup(ips[0], &city)
+
+	city, err := r.geo.City(ips[0])
+
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error":  err,
@@ -298,13 +280,16 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		return nil, err
 	}
 	s.Country = city.Country.IsoCode
+
 	if s.Continent == "" {
 		s.Continent = city.Continent.Code
 	}
+
 	if s.Latitude == 0 && s.Longitude == 0 {
 		s.Latitude = city.Location.Latitude
 		s.Longitude = city.Location.Longitude
 	}
+
 	return s, nil
 }
 
