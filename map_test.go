@@ -140,7 +140,7 @@ var _ = Describe("Map", func() {
 	{
       "board_slug": "uefi-arm64",
       "armbian_version": "24.5.5",
-      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz",
+      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2",
       "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal",
       "file_updated": "2024-07-25T18:01:20Z",
       "file_size": "673315888",
@@ -150,12 +150,12 @@ var _ = Describe("Map", func() {
       "preinstalled_application": "",
       "promoted": "false",
       "download_repository": "archive",
-      "file_extension": "img.qcow2.xz"
+      "file_extension": "img.qcow2"
     },
     {
       "board_slug": "uefi-arm64",
       "armbian_version": "24.5.5",
-      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.asc",
+      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.asc",
       "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal.asc",
       "file_updated": "2024-07-25T18:01:20Z",
       "file_size": "833",
@@ -165,12 +165,12 @@ var _ = Describe("Map", func() {
       "preinstalled_application": "",
       "promoted": "false",
       "download_repository": "archive",
-      "file_extension": "img.qcow2.xz.asc"
+      "file_extension": "img.qcow2.asc"
     },
     {
       "board_slug": "uefi-arm64",
       "armbian_version": "24.5.5",
-      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.sha",
+      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.sha",
       "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal.sha",
       "file_updated": "2024-07-25T18:01:20Z",
       "file_size": "194",
@@ -180,7 +180,7 @@ var _ = Describe("Map", func() {
       "preinstalled_application": "",
       "promoted": "false",
       "download_repository": "archive",
-      "file_extension": "img.qcow2.xz.sha"
+      "file_extension": "img.qcow2.sha"
     },
 	{
       "board_slug": "qemu-uboot-arm64",
@@ -207,9 +207,9 @@ var _ = Describe("Map", func() {
 		Expect(m["khadas-vim4/Bookworm_legacy_server.asc"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.asc"))
 		Expect(m["khadas-vim4/Bookworm_legacy_server.sha"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.sha"))
 
-		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz"))
-		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.asc"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.asc"))
-		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.sha"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.xz.sha"))
+		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2"))
+		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.asc"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.asc"))
+		Expect(m["uefi-arm64/Bookworm_current_minimal-qcow2.sha"]).To(Equal("/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.sha"))
 
 		Expect(m["nightly/qemu-uboot-arm64/Bookworm_current_minimal-uboot-bin"]).To(Equal("/armbian/os/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz"))
 		Expect(m["nightly/qemu-uboot-arm64/Bookworm_current_minimal-uboot-bin.boot.bin.xz"]).To(Equal("/armbian/os/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz"))
