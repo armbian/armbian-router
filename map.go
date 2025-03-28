@@ -88,7 +88,7 @@ type ReleaseFile struct {
 
 var distroCaser = cases.Title(language.Und)
 
-var imageExtensions = []string{"img.xz", "img.qcow2.xz", "boot.bin.xz"}
+var imageExtensions = []string{"img.xz", "img.qcow2", "boot.bin.xz"}
 
 // loadMapJSON loads a map file from JSON, based on the format specified in the github issue.
 // See: https://github.com/armbian/os/pull/129
@@ -144,7 +144,7 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 			sb.WriteString("-boot-csot")
 		case strings.Contains(file.Extension, "rootfs.img.xz"):
 			sb.WriteString("-rootfs")
-		case strings.Contains(file.Extension, "img.qcow2.xz"):
+		case strings.Contains(file.Extension, "img.qcow2"):
 			sb.WriteString("-qcow2")
 		case strings.Contains(file.Extension, "boot.bin.xz"):
 			sb.WriteString("-uboot-bin")
