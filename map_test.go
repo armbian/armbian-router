@@ -7,13 +7,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Map", func() {
-	It("Should successfully load the map from a CSV/Pipe separated file", func() {
-		m, err := loadMapCSV(strings.NewReader(`bananapi/Bullseye_current|bananapi/archive/Armbian_21.08.1_Bananapi_bullseye_current_5.10.60.img.xz|Aug 26 2021|332M`))
+var testExtensions = map[string]string{
+	"boot-sms.img.xz":  "-boot-sms",
+	"boot-boe.img.xz":  "-boot-boe",
+	"boot-csot.img.xz": "-boot-csot",
+	"rootfs.img.xz":    "-rootfs",
+	"img.qcow2":        "-qcow2",
+	"img.qcow2.xz":     "-qcow2",
+	"boot.bin.xz":      "-uboot-bin",
+}
 
-		Expect(err).To(BeNil())
-		Expect(m["bananapi/Bullseye_current"]).To(Equal("bananapi/archive/Armbian_21.08.1_Bananapi_bullseye_current_5.10.60.img.xz"))
-	})
+var _ = Describe("Map", func() {
 	It("Should successfully load the map from a JSON file", func() {
 		data := `{
 		  "assets": [
@@ -34,7 +38,7 @@ var _ = Describe("Map", func() {
 		  ]
 		}`
 
-		m, err := loadMapJSON(strings.NewReader(data))
+		m, err := loadMapJSON(strings.NewReader(data), testExtensions)
 
 		Expect(err).To(BeNil())
 		Expect(m["aml-s9xx-box/Bookworm_current_server"]).To(Equal("/aml-s9xx-box/archive/Armbian_23.11.1_Aml-s9xx-box_bookworm_current_6.1.63.img.xz"))
@@ -85,7 +89,7 @@ var _ = Describe("Map", func() {
 		  ]
 		}`
 
-		m, err := loadMapJSON(strings.NewReader(data))
+		m, err := loadMapJSON(strings.NewReader(data), testExtensions)
 
 		Expect(err).To(BeNil())
 		Expect(m["khadas-vim1/Bookworm_current_xfce"]).To(Equal("/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz"))
@@ -200,7 +204,7 @@ var _ = Describe("Map", func() {
   ]
 }`
 
-		m, err := loadMapJSON(strings.NewReader(data))
+		m, err := loadMapJSON(strings.NewReader(data), testExtensions)
 
 		Expect(err).To(BeNil())
 		Expect(m["khadas-vim4/Bookworm_legacy_server"]).To(Equal("/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz"))
