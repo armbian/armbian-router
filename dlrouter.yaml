@@ -53,3 +53,12 @@ servers:
     - server: xogium.performanceservers.nl/apt/
     - server: github.com/armbian/mirror/releases/download/
       continent: GITHUB
+
+specialExtensions:
+  boot-sms.img.xz: -boot-sms
+  boot-boe.img.xz: -boot-boe
+  boot-csot.img.xz: -boot-csot
+  rootfs.img.xz: -rootfs
+  img.qcow2: -qcow2
+  img.qcow2.xz: -qcow2
+  boot.bin.xz: -uboot-bin

@@ -53,6 +53,9 @@ type Config struct {
 	// ServerList is a list of ServerConfig structs, which gets parsed into servers.
 	ServerList []ServerConfig `mapstructure:"servers"`
 
+	// Special extensions for the download map
+	SpecialExtensions map[string]string `mapstructure:"specialExtensions"`
+
 	// ReloadFunc is called when a reload is done via http api.
 	ReloadFunc func()
 
@@ -163,7 +166,7 @@ func (r *Redirector) ReloadConfig() error {
 		r.config.TopChoices = len(r.servers)
 	}
 
-    // Check if on the config is declared or use default logic
+	// Check if on the config is declared or use default logic
 	if r.config.SameCityThreshold == 0 {
 		r.config.SameCityThreshold = 200000.0
 	}
@@ -230,7 +233,7 @@ func (r *Redirector) reloadServers() error {
 					"path":      u.Path,
 					"latitude":  s.Latitude,
 					"longitude": s.Longitude,
-					"country": s.Country,
+					"country":   s.Country,
 				}).Info("Added server")
 			}
 		}(i, server, u)
@@ -314,7 +317,7 @@ func (r *Redirector) reloadMap() error {
 		return nil
 	}
 	log.WithField("file", mapFile).Info("Loading download map")
-	newMap, err := loadMapFile(mapFile)
+	newMap, err := loadMapFile(mapFile, r.config.SpecialExtensions)
 	if err != nil {
 		return err
 	}

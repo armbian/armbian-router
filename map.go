@@ -1,7 +1,6 @@
 package redirector
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +11,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"golang.org/x/exp/maps"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -20,7 +20,7 @@ import (
 var ErrUnsupportedFormat = errors.New("unsupported map format")
 
 // loadMapFile loads a file as a map
-func loadMapFile(file string) (map[string]string, error) {
+func loadMapFile(file string, specialExtensions map[string]string) (map[string]string, error) {
 	f, err := os.Open(file)
 
 	if err != nil {
@@ -32,38 +32,11 @@ func loadMapFile(file string) (map[string]string, error) {
 	ext := path.Ext(file)
 
 	switch ext {
-	case ".csv":
-		return loadMapCSV(f)
 	case ".json":
-		return loadMapJSON(f)
+		return loadMapJSON(f, specialExtensions)
 	}
 
 	return nil, ErrUnsupportedFormat
-}
-
-// loadMapCSV loads a pipe separated file of mappings
-func loadMapCSV(f io.Reader) (map[string]string, error) {
-	m := make(map[string]string)
-
-	r := csv.NewReader(f)
-
-	r.Comma = '|'
-
-	for {
-		row, err := r.Read()
-
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return nil, err
-		}
-
-		m[strings.TrimLeft(row[0], "/")] = strings.TrimLeft(row[1], "/")
-	}
-
-	return m, nil
 }
 
 // Map represents a JSON format of an asset list
@@ -88,11 +61,14 @@ type ReleaseFile struct {
 
 var distroCaser = cases.Title(language.Und)
 
-var imageExtensions = []string{"img.xz", "img.qcow2", "boot.bin.xz"}
-
 // loadMapJSON loads a map file from JSON, based on the format specified in the github issue.
 // See: https://github.com/armbian/os/pull/129
-func loadMapJSON(f io.Reader) (map[string]string, error) {
+func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]string, error) {
+	// Avoid panics
+	if specialExtensions == nil {
+		specialExtensions = make(map[string]string)
+	}
+
 	m := make(map[string]string)
 
 	var data Map
@@ -135,20 +111,14 @@ func loadMapJSON(f io.Reader) (map[string]string, error) {
 		}
 
 		// Check special case for some extensions
-		switch {
-		case strings.Contains(file.Extension, "boot-sms.img.xz"):
-			sb.WriteString("-boot-sms")
-		case strings.Contains(file.Extension, "boot-boe.img.xz"):
-			sb.WriteString("-boot-boe")
-		case strings.Contains(file.Extension, "boot-csot.img.xz"):
-			sb.WriteString("-boot-csot")
-		case strings.Contains(file.Extension, "rootfs.img.xz"):
-			sb.WriteString("-rootfs")
-		case strings.Contains(file.Extension, "img.qcow2"):
-			sb.WriteString("-qcow2")
-		case strings.Contains(file.Extension, "boot.bin.xz"):
-			sb.WriteString("-uboot-bin")
+		for k, v := range specialExtensions {
+			if strings.Contains(file.Extension, k) {
+				sb.WriteString(v)
+			}
 		}
+
+		imageExtensions := maps.Keys(specialExtensions)
+		imageExtensions = append(imageExtensions, "img.xz") // extra allocation, but it's fine
 
 		// Add board into the map without an extension
 		for _, ext := range imageExtensions {
