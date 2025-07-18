@@ -15,13 +15,13 @@ It uses multiple current technologies and best practices, including:
 - Server weighting, pooling (top x servers are served instead of a single one)
 - Health checks (HTTP, TLS)
 
-### Code Quality
+## Code Quality
 
 The code quality isn't the greatest/top tier. Work is being done towards cleaning it up and standardizing it, writing tests, etc.
 
 All contributions are welcome, see the `check_test.go` file for example tests.
 
-### Checks
+## Checks
 
 The supported checks are HTTP and TLS.
 
