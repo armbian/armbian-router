@@ -1,7 +1,11 @@
-Armbian Redirector
-==================
+<h2 align="center">
+  <img src="https://raw.githubusercontent.com/armbian/.github/master/profile/logo.png" alt="Armbian logo" width="25%">
+  <br><br>
+</h2>
 
-This repository contains a redirect service for Armbian downloads, apt, etc.
+### Purpose of This Repository
+
+This repository contains the **source code for the Armbian redirector service**, which handles intelligent redirection for Armbian OS image downloads and APT package archive access. The redirector ensures that users are routed to the optimal mirror or resource location based on availability, geographic proximity, or request type. It acts as a central entry point for distributed Armbian services.
 
 It uses multiple current technologies and best practices, including:
 
@@ -11,15 +15,13 @@ It uses multiple current technologies and best practices, including:
 - Server weighting, pooling (top x servers are served instead of a single one)
 - Health checks (HTTP, TLS)
 
-Code Quality
-------------
+## Code Quality
 
 The code quality isn't the greatest/top tier. Work is being done towards cleaning it up and standardizing it, writing tests, etc.
 
 All contributions are welcome, see the `check_test.go` file for example tests.
 
-Checks
-------
+## Checks
 
 The supported checks are HTTP and TLS.
 
