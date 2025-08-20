@@ -56,6 +56,11 @@ type Config struct {
 	// Special extensions for the download map
 	SpecialExtensions map[string]string `mapstructure:"specialExtensions"`
 
+	// LogLevel is the log level to use for the application.
+	// It can be one of: "debug", "info", "warn", "error", "fatal", "panic".
+	// If not set, it defaults to "warn".
+	LogLevel string `mapstructure:"logLevel"`
+
 	// ReloadFunc is called when a reload is done via http api.
 	ReloadFunc func()
 
@@ -111,6 +116,15 @@ func (r *Redirector) ReloadConfig() error {
 			return errors.Wrap(err, "Unable to close asn database")
 		}
 	}
+
+	// set log level
+	level, err := log.ParseLevel(r.config.LogLevel)
+	if err != nil {
+		log.WithField("level", r.config.LogLevel).Warning("Invalid log level, using default")
+		level = log.WarnLevel
+	}
+
+	log.SetLevel(level)
 
 	// db can be hot-reloaded if the file changed
 	r.db, err = maxminddb.Open(r.config.GeoDBPath)
