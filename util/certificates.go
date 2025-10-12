@@ -1,10 +1,14 @@
 package util
 
 import (
+	"bytes"
 	"crypto/x509"
+	"io"
+	"net/http"
+	"os"
+
 	"github.com/gwatts/rootcerts/certparse"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 const (
@@ -12,16 +16,31 @@ const (
 )
 
 // LoadCACerts loads the certdata from Mozilla and parses it into a CertPool.
-func LoadCACerts() (*x509.CertPool, error) {
-	res, err := http.Get(defaultDownloadURL)
+func LoadCACerts(certPath string) (*x509.CertPool, error) {
+	var certContents io.Reader
 
-	if err != nil {
-		return nil, err
+	if certPath != "" {
+		res, err := os.ReadFile(certPath)
+
+		if err != nil {
+			return nil, err
+		}
+
+		certContents = io.NopCloser(bytes.NewReader(res))
+	} else {
+
+		res, err := http.Get(defaultDownloadURL)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer res.Body.Close()
+
+		certContents = res.Body
 	}
 
-	defer res.Body.Close()
-
-	certs, err := certparse.ReadTrustedCerts(res.Body)
+	certs, err := certparse.ReadTrustedCerts(certContents)
 
 	if err != nil {
 		return nil, err

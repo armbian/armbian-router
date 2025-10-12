@@ -28,6 +28,10 @@ type Config struct {
 	// GeoDBPath is the path to the MaxMind GeoLite2 City DB.
 	GeoDBPath string `mapstructure:"geodb"`
 
+	// CertDataPath is the path to fetch CA certs from system.
+	// If empty, CAs will be fetched from Mozilla directly.
+	CertDataPath string `mapstructure:"certDataPath"`
+
 	// ASNDBPath is the path to the GeoLite2 ASN DB.
 	ASNDBPath string `mapstructure:"asndb"`
 

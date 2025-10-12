@@ -2,13 +2,14 @@ package main
 
 import (
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/armbian/redirector"
 	"github.com/armbian/redirector/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 var (
@@ -64,7 +65,7 @@ func main() {
 
 		log.Info("Updating root certificates")
 
-		certs, err := util.LoadCACerts()
+		certs, err := util.LoadCACerts(config.CertDataPath)
 
 		if err != nil {
 			log.WithError(err).Error("Unable to load certificates")
