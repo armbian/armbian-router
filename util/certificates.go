@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultDownloadURL = "https://github.com/mozilla/gecko-dev/blob/master/security/nss/lib/ckfw/builtins/certdata.txt?raw=true"
+	defaultDownloadURL = "https://raw.githubusercontent.com/mozilla/gecko-dev/refs/heads/master/security/nss/lib/ckfw/builtins/certdata.txt"
 )
 
 // LoadCACerts loads the certdata from Mozilla and parses it into a CertPool.
