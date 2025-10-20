@@ -65,6 +65,10 @@ type Config struct {
 	// If not set, it defaults to "warn".
 	LogLevel string `mapstructure:"logLevel"`
 
+	// EnableProfiler enables the pprof profiler on the server.
+	// This is not recommended for production use.
+	EnableProfiler bool `mapstructure:"enableProfiler"`
+
 	// ReloadFunc is called when a reload is done via http api.
 	ReloadFunc func()
 
