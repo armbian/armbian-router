@@ -53,11 +53,15 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 
 	// If the path has a prefix of region/NA, it will use specific regions instead
 	// of the default geographical distance
-	if strings.HasPrefix(req.URL.Path, "/region") {
+	if strings.HasPrefix(req.URL.Path, "/region/") {
 		parts := strings.Split(req.URL.Path, "/")
+		if len(parts) < 3 || parts[2] == "" {
+			http.Error(w, "Region not specified", http.StatusBadRequest)
+			return
+		}
 
-		// region = parts[2]
-		if mirrors, ok := r.regionMap[parts[2]]; ok {
+		region := parts[2]
+		if mirrors, ok := r.regionMap[region]; ok {
 			choices := make([]randutil.Choice, len(mirrors))
 
 			for i, item := range mirrors {
