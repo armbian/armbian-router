@@ -1,16 +1,18 @@
 package redirector
 
 import (
+	"net/http"
+
 	"github.com/armbian/redirector/middleware"
-	"github.com/chi-middleware/logrus-logger"
+	logger "github.com/chi-middleware/logrus-logger"
 	"github.com/go-chi/chi/v5"
+	cm "github.com/go-chi/chi/v5/middleware"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 var (
@@ -115,6 +117,11 @@ func (r *Redirector) Start() http.Handler {
 	router.Get("/dl_map", r.dlMapHandler)
 	router.Get("/geoip", r.geoIPHandler)
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
+
+	if r.config.EnableProfiler {
+		log.Warn("Enabling pprof profiler endpoints")
+		router.Mount("/debug", cm.Profiler())
+	}
 
 	router.NotFound(r.redirectHandler)
 
