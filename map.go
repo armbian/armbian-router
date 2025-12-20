@@ -47,17 +47,20 @@ type Map struct {
 
 // ReleaseFile represents a file to be mapped
 type ReleaseFile struct {
-	BoardSlug     string `json:"board_slug"`
-	FileURL       string `json:"file_url"`
-	FileUpdated   string `json:"file_updated"`
-	FileSize      string `json:"file_size"`
-	DistroRelease string `json:"distro_release"`
-	KernelBranch  string `json:"kernel_branch"`
-	ImageVariant  string `json:"image_variant"`
-	Preinstalled  string `json:"preinstalled_application"`
-	Promoted      string `json:"promoted"`
-	Repository    string `json:"download_repository"`
-	Extension     string `json:"file_extension"`
+	BoardSlug      string `json:"board_slug"`
+	FileURL        string `json:"file_url"`
+	FileURLASC     string `json:"file_url_asc"`
+	FileURLSHA     string `json:"file_url_sha"`
+	FileURLTorrent string `json:"file_url_torrent"`
+	FileUpdated    string `json:"file_updated"`
+	FileSize       string `json:"file_size"`
+	DistroRelease  string `json:"distro_release"`
+	KernelBranch   string `json:"kernel_branch"`
+	ImageVariant   string `json:"image_variant"`
+	Preinstalled   string `json:"preinstalled_application"`
+	Promoted       string `json:"promoted"`
+	Repository     string `json:"download_repository"`
+	Extension      string `json:"file_extension"`
 }
 
 var distroCaser = cases.Title(language.Und)
@@ -135,7 +138,17 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 				continue
 			}
 
-			m[sb.String()+ext] = u.Path + ext
+			var filePath string
+			switch ext {
+			case ".asc":
+				filePath = file.FileURLASC
+			case ".sha":
+				filePath = file.FileURLSHA
+			case ".torrent":
+				filePath = file.FileURLTorrent
+			}
+
+			m[sb.String()+ext] = filePath
 		}
 
 		sb.WriteString(".")

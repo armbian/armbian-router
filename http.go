@@ -114,6 +114,7 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 
 	// If we have a dlMap, we map the url to a final path instead
 	var isGithub bool
+	var isLink bool
 	if r.dlMap != nil {
 		if newPath, exists := r.dlMap[strings.TrimLeft(req.URL.Path, "/")]; exists {
 			downloadsMapped.Inc()
@@ -122,6 +123,9 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 			if strings.Contains(newPath, "/armbian/") {
 				redirectPath = newPath
 				isGithub = true
+			} else if strings.HasPrefix(newPath, "http://") || strings.HasPrefix(newPath, "https://") {
+				isLink = true
+				redirectPath = newPath
 			} else {
 				redirectPath = path.Join(server.Path, newPath)
 			}
@@ -132,16 +136,19 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 		redirectPath += "/"
 	}
 
-	// We need to build the final url now
-	u := &url.URL{
-		Scheme: scheme,
-		Host:   server.Host,
-		Path:   redirectPath,
-	}
+	var u *url.URL
+	if !isLink {
+		// We need to build the final url now
+		u = &url.URL{
+			Scheme: scheme,
+			Host:   server.Host,
+			Path:   redirectPath,
+		}
 
-	// Some images are hosted at Github, we have to redirect them to the correct URL
-	if isGithub {
-		u.Host = "github.com"
+		// Some images are hosted at Github, we have to redirect them to the correct URL
+		if isGithub {
+			u.Host = "github.com"
+		}
 	}
 
 	server.Redirects.Inc()
@@ -152,7 +159,12 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("X-Geo-Distance", fmt.Sprintf("%f", distance))
 	}
 
-	w.Header().Set("Location", u.String())
+	path := redirectPath
+	if !isLink && u != nil {
+		path = u.String()
+	}
+
+	w.Header().Set("Location", path)
 	w.WriteHeader(http.StatusFound)
 }
 
