@@ -62,19 +62,6 @@ var _ = Describe("Map", func() {
 			},
 			{
 				"board_slug": "khadas-vim1",
-				"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz.sha",
-				"file_updated": "2023-11-30T01:06:34Z",
-				"file_size": "1605260504",
-				"distro_release": "bookworm",
-				"kernel_branch": "current",
-				"image_variant": "xfce",
-				"preinstalled_application": "",
-				"promoted": "false",
-				"download_repository": "archive",
-				"file_extension": "img.xz.sha"
-			},
-			{
-				"board_slug": "khadas-vim1",
 				"file_url": "https://dl.armbian.com/khadas-vim1/archive/Armbian_23.11.1_Khadas-vim1_bookworm_current_6.1.63_xfce_desktop.img.xz",
 				"file_updated": "2023-11-30T01:06:34Z",
 				"file_size": "1605260504",
@@ -113,34 +100,6 @@ var _ = Describe("Map", func() {
       "download_repository": "archive",
       "file_extension": "oowow.img.xz"
     },
-    {
-      "board_slug": "khadas-vim4",
-      "armbian_version": "23.11.1",
-      "file_url": "https://dl.armbian.com/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.asc",
-      "file_updated": "2023-11-30T01:03:05Z",
-      "file_size": "833",
-      "distro_release": "bookworm",
-      "kernel_branch": "legacy",
-      "image_variant": "server",
-      "preinstalled_application": "",
-      "promoted": "true",
-      "download_repository": "archive",
-      "file_extension": "oowow.img.xz.asc"
-    },
-    {
-      "board_slug": "khadas-vim4",
-      "armbian_version": "23.11.1",
-      "file_url": "https://dl.armbian.com/khadas-vim4/archive/Armbian_23.11.1_Khadas-vim4_bookworm_legacy_5.4.180.oowow.img.xz.sha",
-      "file_updated": "2023-11-30T01:03:05Z",
-      "file_size": "178",
-      "distro_release": "bookworm",
-      "kernel_branch": "legacy",
-      "image_variant": "server",
-      "preinstalled_application": "",
-      "promoted": "true",
-      "download_repository": "archive",
-      "file_extension": "oowow.img.xz.sha"
-    },
 	{
       "board_slug": "uefi-arm64",
       "armbian_version": "24.5.5",
@@ -155,36 +114,6 @@ var _ = Describe("Map", func() {
       "promoted": "false",
       "download_repository": "archive",
       "file_extension": "img.qcow2"
-    },
-    {
-      "board_slug": "uefi-arm64",
-      "armbian_version": "24.5.5",
-      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.asc",
-      "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal.asc",
-      "file_updated": "2024-07-25T18:01:20Z",
-      "file_size": "833",
-      "distro_release": "bookworm",
-      "kernel_branch": "current",
-      "image_variant": "minimal",
-      "preinstalled_application": "",
-      "promoted": "false",
-      "download_repository": "archive",
-      "file_extension": "img.qcow2.asc"
-    },
-    {
-      "board_slug": "uefi-arm64",
-      "armbian_version": "24.5.5",
-      "file_url": "https://dl.armbian.com/uefi-arm64/archive/Armbian_24.5.5_Uefi-arm64_bookworm_current_6.6.42_minimal.img.qcow2.sha",
-      "redi_url": "https://dl.armbian.com/uefi-arm64/Bookworm_current_minimal.sha",
-      "file_updated": "2024-07-25T18:01:20Z",
-      "file_size": "194",
-      "distro_release": "bookworm",
-      "kernel_branch": "current",
-      "image_variant": "minimal",
-      "preinstalled_application": "",
-      "promoted": "false",
-      "download_repository": "archive",
-      "file_extension": "img.qcow2.sha"
     },
 	{
       "board_slug": "qemu-uboot-arm64",

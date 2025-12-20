@@ -18,6 +18,7 @@ import (
 
 // ErrUnsupportedFormat is returned when an unsupported map format is used.
 var ErrUnsupportedFormat = errors.New("unsupported map format")
+var extensionFormats = []string{".asc", ".sha", ".torrent"}
 
 // loadMapFile loads a file as a map
 func loadMapFile(file string, specialExtensions map[string]string) (map[string]string, error) {
@@ -128,17 +129,17 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 			}
 		}
 
-		sb.WriteString(".")
+		// Also add entries for .asc .sha and .torrent
+		for _, ext := range extensionFormats {
+			if strings.HasSuffix(file.Extension, ext) {
+				continue
+			}
 
-		if strings.HasSuffix(file.Extension, ".sha") {
-			sb.WriteString("sha")
-		} else if strings.HasSuffix(file.Extension, ".asc") {
-			sb.WriteString("asc")
-		} else if strings.HasSuffix(file.Extension, ".torrent") {
-			sb.WriteString("torrent")
-		} else {
-			sb.WriteString(file.Extension)
+			m[sb.String()+ext] = u.Path + ext
 		}
+
+		sb.WriteString(".")
+		sb.WriteString(file.Extension)
 
 		m[sb.String()] = u.Path // Add board into the map with an extension
 	}
