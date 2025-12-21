@@ -54,10 +54,10 @@ type ReleaseFile struct {
 	FileURLTorrent string `json:"file_url_torrent"`
 	FileUpdated    string `json:"file_updated"`
 	FileSize       string `json:"file_size"`
-	DistroRelease  string `json:"distro_release"`
-	KernelBranch   string `json:"kernel_branch"`
-	ImageVariant   string `json:"image_variant"`
-	Preinstalled   string `json:"preinstalled_application"`
+	DistroRelease  string `json:"distro"`
+	KernelBranch   string `json:"branch"`
+	ImageVariant   string `json:"variant"`
+	Preinstalled   string `json:"file_application"`
 	Promoted       string `json:"promoted"`
 	Repository     string `json:"download_repository"`
 	Extension      string `json:"file_extension"`
@@ -118,6 +118,7 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 		for k, v := range specialExtensions {
 			if strings.Contains(file.Extension, k) {
 				sb.WriteString(v)
+				break
 			}
 		}
 
