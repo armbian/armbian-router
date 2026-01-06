@@ -107,6 +107,7 @@ func Remove[V comparable](collection []V, value V) []V {
 // ReloadConfig is called to reload the server's configuration.
 func (r *Redirector) ReloadConfig() error {
 	log.Info("Loading configuration...")
+	r.config.ReloadFunc()
 
 	var err error
 
@@ -202,6 +203,7 @@ func (r *Redirector) ReloadConfig() error {
 func (r *Redirector) reloadServers() error {
 	log.WithField("count", len(r.config.ServerList)).Info("Loading servers")
 	var wg sync.WaitGroup
+	var serversLock sync.Mutex
 
 	existing := make(map[string]int)
 	for i, server := range r.servers {
@@ -210,6 +212,14 @@ func (r *Redirector) reloadServers() error {
 
 	hosts := make(map[string]bool)
 	var hostsLock sync.Mutex
+
+	// Collect new servers to add after all goroutines complete
+	type serverUpdate struct {
+		index  int // -1 means new server
+		server *Server
+	}
+	var updates []serverUpdate
+	var updatesLock sync.Mutex
 
 	for _, server := range r.config.ServerList {
 		wg.Add(1)
@@ -238,30 +248,42 @@ func (r *Redirector) reloadServers() error {
 				log.WithError(err).Warning("Unable to add server")
 				return
 			}
+
 			hostsLock.Lock()
 			hosts[u.Host] = true
 			hostsLock.Unlock()
-			if _, ok := existing[u.Host]; ok {
-				s.Redirects = r.servers[i].Redirects
-				r.servers[i] = s
-			} else {
-				s.Redirects = promauto.NewCounter(prometheus.CounterOpts{
-					Name: "armbian_router_redirects_" + metricReplacer.Replace(u.Host),
-					Help: "The number of redirects for server " + u.Host,
-				})
-				r.servers = append(r.servers, s)
-				log.WithFields(log.Fields{
-					"server":    u.Host,
-					"path":      u.Path,
-					"latitude":  s.Latitude,
-					"longitude": s.Longitude,
-					"country":   s.Country,
-				}).Info("Added server")
-			}
+
+			updatesLock.Lock()
+			updates = append(updates, serverUpdate{index: i, server: s})
+			updatesLock.Unlock()
 		}(i, server, u)
 	}
 
 	wg.Wait()
+
+	// Apply all updates after goroutines completed
+	serversLock.Lock()
+	for _, update := range updates {
+		if update.index >= 0 && update.index < len(r.servers) {
+			// Update existing server
+			update.server.Redirects = r.servers[update.index].Redirects
+			r.servers[update.index] = update.server
+		} else if update.index == -1 {
+			// Add new server
+			update.server.Redirects = promauto.NewCounter(prometheus.CounterOpts{
+				Name: "armbian_router_redirects_" + metricReplacer.Replace(update.server.Host),
+				Help: "The number of redirects for server " + update.server.Host,
+			})
+			r.servers = append(r.servers, update.server)
+			log.WithFields(log.Fields{
+				"server":    update.server.Host,
+				"path":      update.server.Path,
+				"latitude":  update.server.Latitude,
+				"longitude": update.server.Longitude,
+				"country":   update.server.Country,
+			}).Info("Added server")
+		}
+	}
 
 	// Remove servers that no longer exist in the config
 	for i := len(r.servers) - 1; i >= 0; i-- {
@@ -273,6 +295,7 @@ func (r *Redirector) reloadServers() error {
 		}).Info("Removed server")
 		r.servers = append(r.servers[:i], r.servers[i+1:]...)
 	}
+	serversLock.Unlock()
 
 	return nil
 }
