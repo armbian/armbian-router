@@ -51,18 +51,17 @@ func (h *HTTPCheck) checkHTTPScheme(server *Server, scheme string, logFields log
 	}
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return false, err
+	}
 
 	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
 
-	if err != nil {
-		return false, err
-	}
-
 	res, err := h.config.checkClient.Do(req)
-
 	if err != nil {
 		return false, err
 	}
+	defer res.Body.Close()
 
 	logFields["responseCode"] = res.StatusCode
 
@@ -78,7 +77,9 @@ func (h *HTTPCheck) checkHTTPScheme(server *Server, scheme string, logFields log
 
 				if !res || err != nil {
 					// If we don't support http, we remove it from supported protocols
+					server.mu.Lock()
 					server.Protocols = Remove(server.Protocols, "http")
+					server.mu.Unlock()
 				} else {
 					// Otherwise, we verify https support
 					h.checkProtocol(server, "https")
@@ -105,7 +106,9 @@ func (h *HTTPCheck) checkProtocol(server *Server, scheme string) {
 	}
 
 	if !lo.Contains(server.Protocols, scheme) {
+		server.mu.Lock()
 		server.Protocols = append(server.Protocols, scheme)
+		server.mu.Unlock()
 	}
 }
 
@@ -221,7 +224,9 @@ func (t *TLSCheck) Check(server *Server, logFields log.Fields) (bool, error) {
 
 	// If https is valid, append it
 	if !lo.Contains(server.Protocols, "https") {
+		server.mu.Lock()
 		server.Protocols = append(server.Protocols, "https")
+		server.mu.Unlock()
 	}
 
 	return true, nil
@@ -240,12 +245,11 @@ func (v *VersionCheck) getCurrentVersion() (string, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, v.VersionURL, nil)
-
-	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
-
 	if err != nil {
 		return "", err
 	}
+
+	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
 
 	res, err := v.config.checkClient.Do(req)
 
@@ -287,11 +291,11 @@ func (v *VersionCheck) Check(server *Server, logFields log.Fields) (bool, error)
 	}
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
-
 	if err != nil {
 		return false, err
 	}
+
+	req.Header.Set("User-Agent", "ArmbianRouter/1.0 (Go "+runtime.Version()+")")
 
 	res, err := v.config.checkClient.Do(req)
 

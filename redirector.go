@@ -128,7 +128,11 @@ func (r *Redirector) Start() http.Handler {
 	if r.config.BindAddress != "" {
 		log.WithField("bind", r.config.BindAddress).Info("Binding to address")
 
-		go http.ListenAndServe(r.config.BindAddress, router)
+		go func() {
+			if err := http.ListenAndServe(r.config.BindAddress, router); err != nil {
+				log.WithError(err).Fatal("Failed to bind to address")
+			}
+		}()
 	}
 
 	return router
