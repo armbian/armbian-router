@@ -107,7 +107,9 @@ func Remove[V comparable](collection []V, value V) []V {
 // ReloadConfig is called to reload the server's configuration.
 func (r *Redirector) ReloadConfig() error {
 	log.Info("Loading configuration...")
-	r.config.ReloadFunc()
+	if reloadFunc := r.config.ReloadFunc; reloadFunc != nil {
+		reloadFunc()
+	}
 
 	var err error
 
