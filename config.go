@@ -337,6 +337,17 @@ func (r *Redirector) addServer(server ServerConfig, u *url.URL) (*Server, error)
 		}).Warning("Could not resolve address")
 		return nil, err
 	}
+
+	// Check for IPv6 support using resolved IPs
+	hasIPv6 := false
+	for _, ip := range ips {
+		if ip.To4() == nil && ip.To16() != nil {
+			hasIPv6 = true
+			break
+		}
+	}
+	s.IPv6 = hasIPv6
+
 	var city db.City
 	err = r.db.Lookup(ips[0], &city)
 	if err != nil {

@@ -77,6 +77,9 @@ func New(config *Config) *Redirector {
 		&TLSCheck{
 			config: config,
 		},
+		&IPv6Check{
+			config: config,
+		},
 	}
 
 	if config.CheckURL != "" {

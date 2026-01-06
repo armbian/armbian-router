@@ -31,6 +31,7 @@ type Server struct {
 	Continent  string             `json:"continent"`
 	Country    string             `json:"country"`
 	Protocols  []string           `json:"protocols"`
+	IPv6       bool               `json:"ipv6"`
 	Rules      []Rule             `json:"rules,omitempty"`
 	Redirects  prometheus.Counter `json:"-"`
 	LastChange time.Time          `json:"lastChange"`
@@ -201,8 +202,12 @@ type ComputedDistance struct {
 // it computes the distances. If the nearest server is within a threshold (e.g. 50km),
 // it is selected deterministically; otherwise, a weighted selection is used.
 // If no local servers exist, it falls back to a weighted selection among all valid servers.
-func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, float64, error) {
+// If requireIPv6 is true, servers without IPv6 support are filtered out.
+func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP, requireIPv6 bool) (*Server, float64, error) {
 	cacheKey := scheme + "_" + ip.String()
+	if requireIPv6 {
+		cacheKey += "_v6"
+	}
 
 	if cached, exists := r.serverCache.Get(cacheKey); exists {
 		if comp, ok := cached.(ComputedDistance); ok {
@@ -235,6 +240,12 @@ func (s ServerList) Closest(r *Redirector, scheme string, ip net.IP) (*Server, f
 
 	validServers := lo.Filter(s, func(server *Server, _ int) bool {
 		if !server.Available || !lo.Contains(server.Protocols, scheme) {
+			return false
+		}
+
+		// If user is on IPv6, filter out servers that don't support IPv6
+		if requireIPv6 && !server.IPv6 {
+			log.WithField("host", server.Host).Debug("Skipping server due to no IPv6 support")
 			return false
 		}
 		if len(server.Rules) > 0 && !server.checkRules(ruleInput) {

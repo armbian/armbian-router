@@ -96,9 +96,12 @@ func (r *Redirector) redirectHandler(w http.ResponseWriter, req *http.Request) {
 		scheme = "http"
 	}
 
+	// Detect if user is connecting via IPv6
+	isIPv6 := ip.To4() == nil && ip.To16() != nil
+
 	// If none of the above exceptions are matched, we use the geographical distance based on IP
 	if server == nil {
-		server, distance, err = r.servers.Closest(r, scheme, ip)
+		server, distance, err = r.servers.Closest(r, scheme, ip, isIPv6)
 
 		if err != nil {
 			log.WithError(err).Warning("Unable to find closest server")

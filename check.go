@@ -232,6 +232,53 @@ func (t *TLSCheck) Check(server *Server, logFields log.Fields) (bool, error) {
 	return true, nil
 }
 
+// IPv6Check verifies that a server has a valid IPv6 address by checking for AAAA records.
+type IPv6Check struct {
+	config *Config
+}
+
+// Check verifies IPv6 support for the server by checking for AAAA records
+func (i *IPv6Check) Check(server *Server, logFields log.Fields) (bool, error) {
+	// Extract host from server (handle host:port format)
+	host := server.Host
+	if strings.Contains(host, ":") {
+		var err error
+		host, _, err = net.SplitHostPort(server.Host)
+		if err != nil {
+			host = server.Host
+		}
+	}
+
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		logFields["error"] = err
+		return true, nil // DNS lookup failure shouldn't fail the whole check
+	}
+
+	// Check if any resolved IP is IPv6
+	hasIPv6 := false
+	for _, ip := range ips {
+		if ip.To4() == nil && ip.To16() != nil {
+			hasIPv6 = true
+			break
+		}
+	}
+
+	server.mu.Lock()
+	server.IPv6 = hasIPv6
+	server.mu.Unlock()
+
+	if hasIPv6 {
+		log.WithField("host", server.Host).Debug("Server has IPv6 support")
+	} else {
+		logFields["cause"] = "No AAAA record found"
+		log.WithField("host", server.Host).Debug("Server does not have IPv6 support")
+	}
+
+	// This check doesn't fail servers, it just updates their IPv6 status
+	return true, nil
+}
+
 type VersionCheck struct {
 	config          *Config
 	VersionURL      string
