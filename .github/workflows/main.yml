@@ -38,14 +38,12 @@ jobs:
       - name: Install dependencies
         run: |
           go version
-          go install -mod=mod golang.org/x/lint/golint
           go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 
-      # Run vet & lint on the code
-      - name: Run vet & lint
+      # Run vet on the code
+      - name: Run vet
         run: |
           go vet .
-          golint .
 
       # Run testing on the code
       - name: Run testing
