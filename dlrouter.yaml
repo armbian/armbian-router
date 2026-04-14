@@ -58,7 +58,15 @@ specialExtensions:
   boot-sms.img.xz: -boot-sms
   boot-boe.img.xz: -boot-boe
   boot-csot.img.xz: -boot-csot
+  # Boot payload companion files (generator emits "<flavor>.img.xz" after stripping
+  # the ".boot_<soc>-<board>-<flavor>" prefix; REDI_URL gets a "-<flavor>" suffix)
+  boe.img.xz: -boe
+  csot.img.xz: -csot
+  kebab.img.xz: -kebab
+  recovery.img.xz: -recovery
   rootfs.img.xz: -rootfs
+  # Hyper-V cloud images
+  hyperv.zip.xz: -hyperv
   img.qcow2: -qcow2
   img.qcow2.xz: -qcow2
   boot.bin.xz: -uboot-bin
