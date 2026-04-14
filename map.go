@@ -123,7 +123,7 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 		}
 
 		imageExtensions := maps.Keys(specialExtensions)
-		imageExtensions = append(imageExtensions, "img.xz") // extra allocation, but it's fine
+		imageExtensions = append(imageExtensions, "img.xz", "tar.xz") // extra allocation, but it's fine
 
 		// Add board into the map without an extension
 		for _, ext := range imageExtensions {
