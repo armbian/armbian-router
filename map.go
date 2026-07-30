@@ -97,7 +97,7 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 
 		var sb strings.Builder
 
-		if file.Repository == "os" {
+		if file.Repository == "ci" {
 			sb.WriteString("nightly/")
 		}
 
