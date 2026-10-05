@@ -3,61 +3,126 @@
   <br><br>
 </h2>
 
-### Purpose of This Repository
+# Armbian Router (dlrouter)
 
-This repository contains the **source code for the Armbian redirector service**, which handles intelligent redirection for Armbian OS image downloads and APT package archive access. The redirector ensures that users are routed to the optimal mirror or resource location based on availability, geographic proximity, or request type. It acts as a central entry point for distributed Armbian services.
+## Purpose of This Repository
 
-It uses multiple current technologies and best practices, including:
+This repository contains the source code for the **Armbian redirector service** (`dlrouter`), which intelligently redirects users to the optimal mirror for Armbian OS image downloads and APT package archive access. It routes requests based on geographic proximity, server weight, availability, and configurable per-mirror rules.
 
-- Go 1.19
-- Ginkgo v2 and Gomega testing framework
-- GeoIP + Distance routing
-- Server weighting, pooling (top x servers are served instead of a single one)
+## Features
+
+- GeoIP + distance-based routing (MaxMind GeoLite2)
+- Weighted server pooling (top-N candidates served instead of a single one)
 - Health checks (HTTP, TLS)
+- Per-mirror rules (e.g. ASN or country allow/deny)
+- Optional download path mapping (`dl_map`, think symlinks in a generated file)
+- Prometheus metrics endpoint
+- SVG status badges for dynamic mirror lists
 
-## Code Quality
+## Built With
 
-The code quality isn't the greatest/top tier. Work is being done towards cleaning it up and standardizing it, writing tests, etc.
+- **Go** (module `github.com/armbian/redirector`, Go 1.21)
+- HTTP routing via [`go-chi/chi`](https://github.com/go-chi/chi) with `chi-middleware/logrus-logger`
+- Configuration via [`spf13/viper`](https://github.com/spf13/viper) (YAML)
+- GeoIP lookups via [`oschwald/maxminddb-golang`](https://github.com/oschwald/maxminddb-golang)
+- Logging via [`sirupsen/logrus`](https://github.com/sirupsen/logrus)
+- Prometheus client (`prometheus/client_golang`)
+- Trusted roots via [`gwatts/rootcerts`](https://github.com/gwatts/rootcerts) (Mozilla CA bundle)
+- LRU cache (`hashicorp/golang-lru`)
+- Testing with **Ginkgo v2** and **Gomega**
+- Container image: multi-stage `Dockerfile` on `golang:alpine` → `gcr.io/distroless/static:nonroot`
 
-All contributions are welcome, see the `check_test.go` file for example tests.
+## Repository Layout
+
+```
+.
+├── cmd/
+│   ├── main.go              # Service entry point
+│   └── db/genaccessors.go   # Code generator for db accessors
+├── db/
+│   ├── accessors.go
+│   └── structs.go
+├── middleware/
+│   └── middleware.go
+├── util/
+│   ├── certificates.go
+│   └── util.go
+├── assets/                  # Status SVG badges (up/down/unknown)
+├── check.go / check_test.go # Mirror health checks (HTTP/TLS)
+├── config.go
+├── http.go
+├── map.go / map_test.go
+├── mirrors.go
+├── redirector.go
+├── servers.go
+├── armbianmirror_suite_test.go
+├── dlrouter.yaml            # Example configuration
+├── Dockerfile
+└── go.mod / go.sum
+```
+
+## Building
+
+Build the binary locally with Go:
+
+```sh
+go build -o dlrouter ./cmd/main.go
+```
+
+Or build the container image:
+
+```sh
+docker build -t armbian-router .
+```
+
+A pre-built image is published to GitHub Container Registry at `ghcr.io/armbian/armbian-router:latest`.
+
+## Running Tests
+
+Tests use Ginkgo v2:
+
+```sh
+go install github.com/onsi/ginkgo/v2/ginkgo
+ginkgo --randomize-all --p --cover --coverprofile=cover.out .
+go tool cover -func=cover.out
+```
+
+Contributions are welcome; see `check_test.go` for example tests.
 
 ## Checks
 
-The supported checks are HTTP and TLS.
+Supported mirror checks are **HTTP** and **TLS**.
 
 ### HTTP
 
-Verifies server accessibility via HTTP. If the server returns a forced redirect to an `https://` url, it is considered to be https-only.
+Verifies server accessibility via HTTP. If the server returns a forced redirect to an `https://` URL, it is considered HTTPS-only.
 
-If the server responds on the `https` url with a forced `http` redirect, it will be marked down due to misconfiguration. Requests should never downgrade.
+If the server responds on an `https` URL with a forced `http` redirect, it will be marked down due to misconfiguration — requests should never downgrade.
 
 ### TLS
 
-Certificate checking to ensure no servers are used which have invalid/expired certificates. This check is written to use the Mozilla ca certificate list, loaded on start/config load, to verify roots.
+Certificate validation is performed against the **Mozilla CA bundle**, loaded on start/reload (via `gwatts/rootcerts`), instead of the OS trust store. This avoids inconsistencies observed with date validation on some hosts.
 
-OS certificate trusts WERE being used to do this, however some issues with the date validation (which could be user error) caused the move to the ca bundle, which could be considered more usable.
+> Note: the CA bundle is fetched on each startup/reload.
 
-Note: This downloads from github every startup/reload. This should be a reliable process, as long as Mozilla doesn't deprecate their repo. Their HG URL is super slow.
-
-Configuration
--------------
+## Configuration
 
 ### Modes
 
 #### Redirect
 
-Standard redirect functionality
+Standard redirect functionality.
 
 #### Download Mapping
 
-Uses the `dl_map` configuration variable to enable mapping of paths to new paths.
-
-Think symlinks, but in a generated file.
+Uses the `dl_map` configuration variable to enable mapping of paths to new paths — think symlinks, but in a generated file.
 
 ### Mirrors
-Mirror targets with trailing slash are placed in the yaml configuration file.
+
+Mirror targets (with trailing slash) are placed in the YAML configuration file. See `dlrouter.yaml` for an example.
 
 ### Example YAML
+
 ```yaml
 # GeoIP Database Path
 geodb: GeoLite2-City.mmdb
@@ -69,10 +134,10 @@ dl_map: userdata.csv
 cacheSize: 1024
 
 # Server definition
-# Weights are just like nginx, where if it's > 1 it'll be chosen x out of x + total times
-# By default, the top 3 servers are used for choosing the best.
-# server = full url or host+path
-# weight = int
+# Weights are just like nginx: if > 1 it'll be chosen x out of x + total times.
+# By default the top 3 servers are used for choosing the best.
+# server    = full url or host+path
+# weight    = int
 # optional: latitude, longitude (float)
 # optional: protocols (list/array)
 servers:
@@ -81,84 +146,70 @@ servers:
     weight: 15
     latitude: 41.8879
     longitude: -88.1995
-  # Example of a server with additional protocols (rsync)
-  # Useful for defining servers which could be used for rsync sources
-  # This lets us potentially add an endpoint to say "give me a server with rsync"
+  # Server with additional protocols (e.g. rsync)
   - server: mirrors.dotsrc.org/armbian-apt/
     weight: 15
     protocols:
       - http
       - https
       - rsync
-  # Example of a server with rules
+  # Server with rules
   - server: armbian.lv.auroradev.org/apt/
     rules:
-      # Required: field
       # Value matchers: is, is_not, in, not_in
-      # See the RuleInput struct, as well as the ASN and 
-      # This example excludes Google's ASN from this mirror
+      # Exclude Google's ASN from this mirror
       - field: asn.autonomous_system_number
         is_not: 15169
-      # An example of a country blocking access to another
-      # For instance, Ukraine not allowing Russian ISPs in.
+      # Country-based blocking
       - field: location.country.iso_code
         not_in:
           - RU
-````
+```
 
-## API
+## HTTP API
 
-`/status`
+| Path | Description |
+| --- | --- |
+| `/status` | Simple health check endpoint. |
+| `/reload` | Flushes cache and reloads configuration/mapping. Requires `reloadToken` in config and a matching `Authorization: Bearer TOKEN`. |
+| `/mirrors` | Lists all mirrors in the legacy (by region) format. |
+| `/mirrors.json` | Lists all mirrors in the JSON format (see example below). |
+| `/mirrors/{server}.svg` | SVG status badge for a given server, for use in dynamic mirror lists. |
+| `/dl_map` | JSON-encoded download mappings. |
+| `/geoip` | GeoIP information for the requester. |
+| `/region/{REGIONCODE}/{PATH}` | Redirects to the desired region (`NA`, `EU`, `AS`). |
+| `/metrics` | Prometheus metrics endpoint (publicly exposed). |
 
-Meant for a simple health check (nginx/etc can 502 or similar if down)
-
-`/reload`
-
-Flushes cache and reloads configuration and mapping. Requires reloadToken to be set in the configuration, and a matching token provided in `Authorization: Bearer TOKEN`
-
-`/mirrors`
-
-Shows all mirrors in the legacy (by region) format
-
-`/mirrors.json`
-
-Shows all mirrors in the new JSON format. Example:
+Example `/mirrors.json` entry:
 
 ```json
 [
   {
-    "available":true,
-    "host":"imola.armbian.com",
-    "path":"/apt/",
-    "latitude":46.0503,
-    "longitude":14.5046,
-    "weight":10,
-    "continent":"EU",
-    "lastChange":"2022-08-12T06:52:35.029565986Z"
+    "available": true,
+    "host": "imola.armbian.com",
+    "path": "/apt/",
+    "latitude": 46.0503,
+    "longitude": 14.5046,
+    "weight": 10,
+    "continent": "EU",
+    "lastChange": "2022-08-12T06:52:35.029565986Z"
   }
 ]
 ```
 
-`/mirrors/{server}.svg`
+## Continuous Integration
 
-Magic SVG path to show badges based on server status, for use in dynamic mirror lists.
+For an overview of the CI pipelines run against this repository, see the Armbian CI dashboard:
 
-`/dl_map`
+<https://actions.armbian.com/?repo=armbian-router>
 
-Shows json-encoded download mappings
+Tagged releases (`v*`) also publish a multi-arch (`linux/amd64`, `linux/arm64`) Docker image to GitHub Container Registry.
 
-`/geoip`
+## License
 
-Shows GeoIP information for the requester
+Released under the ISC license. Copyright (c) 2022 Tyler Stuyfzand and the Armbian Project. See [`LICENSE`](LICENSE) for details.
 
-`/region/REGIONCODE/PATH`
+## Related Links
 
-Using this magic path will redirect to the desired region:
-
-* NA - North America
-* EU - Europe
-* AS - Asia
-
-`/metrics`
-
-Prometheus metrics endpoint. Metrics aren't considered private, thus are exposed to the public.
+- Armbian website: <https://www.armbian.com>
+- Armbian documentation: <https://docs.armbian.com>
