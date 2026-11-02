@@ -221,7 +221,7 @@ var _ = Describe("Map", func() {
 		Expect(m["bananapir3mini/Trixie_current_minimal-fip.fip.bin.xz"]).To(Equal("/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.bin.xz"))
 	})
 
-	It("Should ignore a redi_url outside dl.armbian.com", func() {
+	It("Should ignore a redi_url equal to its file_url", func() {
 		data := `{
   "assets": [
     {
@@ -242,6 +242,7 @@ var _ = Describe("Map", func() {
 
 		Expect(err).To(BeNil())
 		Expect(m["uefi-arm64/Trixie_cloud_minimal-sdk-iso"]).To(Equal("/armbian/sdk/releases/download/1/Armbian_26.8.14_Uefi-arm64_trixie_cloud_6.18.59-sdk_minimal.iso"))
+		Expect(m).ToNot(HaveKey("armbian/sdk/releases/download/1/Armbian_26.8.14_Uefi-arm64_trixie_cloud_6.18.59-sdk_minimal.iso"))
 	})
 	It("Should not let an asset without redi_url override a redi_url key", func() {
 		data := `{
