@@ -66,9 +66,6 @@ type ReleaseFile struct {
 
 var distroCaser = cases.Title(language.Und)
 
-// rediHost is the only redi_url host whose path is used as a map key
-const rediHost = "dl.armbian.com"
-
 // loadMapJSON loads a map file from JSON, based on the format specified in the github issue.
 // See: https://github.com/armbian/os/pull/129
 func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]string, error) {
@@ -114,7 +111,7 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 
 		legacyKey := legacyMapKey(file, specialExtensions)
 
-		rediKey, ok := rediMapKey(file.RediURL)
+		rediKey, ok := rediMapKey(file.RediURL, file.FileURL)
 
 		// Without a usable redi_url the asset only gets the old key, as an alias
 		if !ok {
@@ -174,15 +171,16 @@ func legacyMapKey(file ReleaseFile, specialExtensions map[string]string) string 
 	return sb.String()
 }
 
-// rediMapKey returns the path of a dl.armbian.com redi_url without the leading slash
-func rediMapKey(rediURL string) (string, bool) {
-	if rediURL == "" {
+// rediMapKey returns the path of a redi_url without the leading slash
+func rediMapKey(rediURL, fileURL string) (string, bool) {
+	// A redi_url equal to file_url is the file itself, not a redirect
+	if rediURL == "" || rediURL == fileURL {
 		return "", false
 	}
 
 	u, err := url.Parse(rediURL)
 
-	if err != nil || u.Host != rediHost {
+	if err != nil {
 		return "", false
 	}
 
