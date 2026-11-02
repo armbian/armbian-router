@@ -243,4 +243,37 @@ var _ = Describe("Map", func() {
 		Expect(err).To(BeNil())
 		Expect(m["uefi-arm64/Trixie_cloud_minimal-sdk-iso"]).To(Equal("/armbian/sdk/releases/download/1/Armbian_26.8.14_Uefi-arm64_trixie_cloud_6.18.59-sdk_minimal.iso"))
 	})
+	It("Should not let an asset without redi_url override a redi_url key", func() {
+		data := `{
+  "assets": [
+    {
+      "board_slug": "bananapir3mini",
+      "file_url": "https://dl.armbian.com/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.bin.xz",
+      "redi_url": "https://dl.armbian.com/bananapir3mini/Trixie_current_minimal-fip",
+      "distro": "trixie",
+      "branch": "current",
+      "variant": "minimal",
+      "file_application": "",
+      "download_repository": "archive",
+      "file_extension": "fip.bin.xz"
+    },
+    {
+      "board_slug": "bananapir3mini",
+      "file_url": "https://github.com/armbian/community/releases/download/1/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.img.xz",
+      "distro": "trixie",
+      "branch": "current",
+      "variant": "minimal",
+      "file_application": "",
+      "download_repository": "community",
+      "file_extension": "fip.img.xz"
+    }
+  ]
+}`
+
+		m, err := loadMapJSON(strings.NewReader(data), map[string]string{"fip.img.xz": "-fip"})
+
+		Expect(err).To(BeNil())
+		Expect(m["bananapir3mini/Trixie_current_minimal-fip"]).To(Equal("/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.bin.xz"))
+		Expect(m["bananapir3mini/Trixie_current_minimal-fip.fip.img.xz"]).To(Equal("/armbian/community/releases/download/1/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.img.xz"))
+	})
 })

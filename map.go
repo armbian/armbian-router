@@ -116,7 +116,13 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 
 		rediKey, ok := rediMapKey(file.RediURL)
 
-		if !ok || rediKey == legacyKey {
+		// Without a usable redi_url the asset only gets the old key, as an alias
+		if !ok {
+			addMapEntries(legacy, legacyKey, file, u.Path, isImage)
+			continue
+		}
+
+		if rediKey == legacyKey {
 			addMapEntries(m, legacyKey, file, u.Path, isImage)
 			continue
 		}
