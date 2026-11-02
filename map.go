@@ -61,9 +61,13 @@ type ReleaseFile struct {
 	Promoted       string `json:"promoted"`
 	Repository     string `json:"download_repository"`
 	Extension      string `json:"file_extension"`
+	RediURL        string `json:"redi_url"`
 }
 
 var distroCaser = cases.Title(language.Und)
+
+// rediHost is the only redi_url host whose path is used as a map key
+const rediHost = "dl.armbian.com"
 
 // loadMapJSON loads a map file from JSON, based on the format specified in the github issue.
 // See: https://github.com/armbian/os/pull/129
@@ -74,12 +78,16 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 	}
 
 	m := make(map[string]string)
+	legacy := make(map[string]string)
 
 	var data Map
 
 	if err := json.NewDecoder(f).Decode(&data); err != nil {
 		return nil, err
 	}
+
+	imageExtensions := maps.Keys(specialExtensions)
+	imageExtensions = append(imageExtensions, "img.xz", "tar.xz") // extra allocation, but it's fine
 
 	for _, file := range data.Assets {
 		// Because download mapping a full URL, redirecting, and finding a server again is redundant,
@@ -95,68 +103,113 @@ func loadMapJSON(f io.Reader, specialExtensions map[string]string) (map[string]s
 			continue
 		}
 
-		var sb strings.Builder
+		isImage := false
 
-		if file.Repository == "ci" {
-			sb.WriteString("nightly/")
-		}
-
-		sb.WriteString(file.BoardSlug)
-		sb.WriteString("/")
-		sb.WriteString(distroCaser.String(file.DistroRelease))
-		sb.WriteString("_")
-		sb.WriteString(file.KernelBranch)
-		sb.WriteString("_")
-		sb.WriteString(file.ImageVariant)
-
-		if file.Preinstalled != "" {
-			sb.WriteString("-")
-			sb.WriteString(file.Preinstalled)
-		}
-
-		// Check special case for some extensions
-		for k, v := range specialExtensions {
-			if strings.Contains(file.Extension, k) {
-				sb.WriteString(v)
-				break
-			}
-		}
-
-		imageExtensions := maps.Keys(specialExtensions)
-		imageExtensions = append(imageExtensions, "img.xz", "tar.xz") // extra allocation, but it's fine
-
-		// Add board into the map without an extension
 		for _, ext := range imageExtensions {
 			if strings.HasSuffix(file.Extension, ext) {
-				m[sb.String()] = u.Path
+				isImage = true
 				break
 			}
 		}
 
-		// Also add entries for .asc .sha and .torrent
-		for _, ext := range extensionFormats {
-			if strings.HasSuffix(file.Extension, ext) {
-				continue
-			}
+		legacyKey := legacyMapKey(file, specialExtensions)
 
-			var filePath string
-			switch ext {
-			case ".asc":
-				filePath = file.FileURLASC
-			case ".sha":
-				filePath = file.FileURLSHA
-			case ".torrent":
-				filePath = file.FileURLTorrent
-			}
+		rediKey, ok := rediMapKey(file.RediURL)
 
-			m[sb.String()+ext] = filePath
+		if !ok || rediKey == legacyKey {
+			addMapEntries(m, legacyKey, file, u.Path, isImage)
+			continue
 		}
 
-		sb.WriteString(".")
-		sb.WriteString(file.Extension)
+		// A redi_url of its own marks a dedicated download, so it always gets the bare key
+		addMapEntries(m, rediKey, file, u.Path, true)
+		addMapEntries(legacy, legacyKey, file, u.Path, isImage)
+	}
 
-		m[sb.String()] = u.Path // Add board into the map with an extension
+	// Keep the old keys working where no redi_url claims them
+	for k, v := range legacy {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+		}
 	}
 
 	return m, nil
+}
+
+// legacyMapKey builds the key from the asset fields and the special extension suffixes
+func legacyMapKey(file ReleaseFile, specialExtensions map[string]string) string {
+	var sb strings.Builder
+
+	if file.Repository == "ci" {
+		sb.WriteString("nightly/")
+	}
+
+	sb.WriteString(file.BoardSlug)
+	sb.WriteString("/")
+	sb.WriteString(distroCaser.String(file.DistroRelease))
+	sb.WriteString("_")
+	sb.WriteString(file.KernelBranch)
+	sb.WriteString("_")
+	sb.WriteString(file.ImageVariant)
+
+	if file.Preinstalled != "" {
+		sb.WriteString("-")
+		sb.WriteString(file.Preinstalled)
+	}
+
+	// Check special case for some extensions
+	for k, v := range specialExtensions {
+		if strings.Contains(file.Extension, k) {
+			sb.WriteString(v)
+			break
+		}
+	}
+
+	return sb.String()
+}
+
+// rediMapKey returns the path of a dl.armbian.com redi_url without the leading slash
+func rediMapKey(rediURL string) (string, bool) {
+	if rediURL == "" {
+		return "", false
+	}
+
+	u, err := url.Parse(rediURL)
+
+	if err != nil || u.Host != rediHost {
+		return "", false
+	}
+
+	key := strings.TrimPrefix(u.Path, "/")
+
+	return key, key != ""
+}
+
+// addMapEntries maps the key with and without the extension, plus the .asc .sha and .torrent keys
+func addMapEntries(m map[string]string, key string, file ReleaseFile, filePath string, bare bool) {
+	// Add board into the map without an extension
+	if bare {
+		m[key] = filePath
+	}
+
+	// Also add entries for .asc .sha and .torrent
+	for _, ext := range extensionFormats {
+		if strings.HasSuffix(file.Extension, ext) {
+			continue
+		}
+
+		var sigPath string
+		switch ext {
+		case ".asc":
+			sigPath = file.FileURLASC
+		case ".sha":
+			sigPath = file.FileURLSHA
+		case ".torrent":
+			sigPath = file.FileURLTorrent
+		}
+
+		m[key+ext] = sigPath
+	}
+
+	m[key+"."+file.Extension] = filePath // Add board into the map with an extension
 }
