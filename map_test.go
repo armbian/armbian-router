@@ -79,10 +79,10 @@ var _ = Describe("Map", func() {
       "file_url_asc": "https://dl.armbian.com/khadas-vim1/archive/Armbian_25.11.1_Khadas-vim1_noble_current_6.12.58_xfce_desktop.img.xz.asc",
       "file_url_sha": "https://dl.armbian.com/khadas-vim1/archive/Armbian_25.11.1_Khadas-vim1_noble_current_6.12.58_xfce_desktop.img.xz.sha",
       "file_url_torrent": "https://dl.armbian.com/khadas-vim1/archive/Armbian_25.11.1_Khadas-vim1_noble_current_6.12.58_xfce_desktop.img.xz.torrent",
-      "redi_url": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce",
-      "redi_url_asc": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce.asc",
-      "redi_url_sha": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce.sha",
-      "redi_url_torrent": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce.torrent",
+      "redi_url": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce-test",
+      "redi_url_asc": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce-test.asc",
+      "redi_url_sha": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce-test.sha",
+      "redi_url_torrent": "https://dl.armbian.com/khadas-vim1/Noble_current_xfce-test.torrent",
       "file_updated": "2025-11-22T15:39:59Z",
       "file_size": "1482867344",
       "distro": "noble",
@@ -172,5 +172,75 @@ var _ = Describe("Map", func() {
 		Expect(m["nightly/qemu-uboot-arm64/Bookworm_current_minimal-uboot-bin"]).To(Equal("/armbian/ci/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz"))
 		Expect(m["nightly/qemu-uboot-arm64/Bookworm_current_minimal-uboot-bin.boot.bin.xz"]).To(Equal("/armbian/ci/releases/download/24.8.0-trunk.542/Armbian_24.8.0-trunk.542_Qemu-uboot-arm64_bookworm_current_6.6.44_minimal.u-boot.bin.xz"))
 
+	})
+	It("Should key companion files on their redi_url", func() {
+		data := `{
+  "assets": [
+    {
+      "board_slug": "bananapir3mini",
+      "file_url": "https://dl.armbian.com/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.bl2.img.xz",
+      "redi_url": "https://dl.armbian.com/bananapir3mini/Trixie_current_minimal-bl2",
+      "distro": "trixie",
+      "branch": "current",
+      "variant": "minimal",
+      "file_application": "",
+      "download_repository": "archive",
+      "file_extension": "bl2.img.xz"
+    },
+    {
+      "board_slug": "bananapir3mini",
+      "file_url": "https://dl.armbian.com/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.bin.xz",
+      "redi_url": "https://dl.armbian.com/bananapir3mini/Trixie_current_minimal-fip",
+      "distro": "trixie",
+      "branch": "current",
+      "variant": "minimal",
+      "file_application": "",
+      "download_repository": "archive",
+      "file_extension": "fip.bin.xz"
+    },
+    {
+      "board_slug": "bananapir3mini",
+      "file_url": "https://dl.armbian.com/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.img.xz",
+      "redi_url": "https://dl.armbian.com/bananapir3mini/Trixie_current_minimal",
+      "distro": "trixie",
+      "branch": "current",
+      "variant": "minimal",
+      "file_application": "",
+      "download_repository": "archive",
+      "file_extension": "img.xz"
+    }
+  ]
+}`
+
+		m, err := loadMapJSON(strings.NewReader(data), testExtensions)
+
+		Expect(err).To(BeNil())
+		Expect(m["bananapir3mini/Trixie_current_minimal"]).To(Equal("/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.img.xz"))
+		Expect(m["bananapir3mini/Trixie_current_minimal-bl2"]).To(Equal("/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.bl2.img.xz"))
+		Expect(m["bananapir3mini/Trixie_current_minimal-fip"]).To(Equal("/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.bin.xz"))
+		Expect(m["bananapir3mini/Trixie_current_minimal-fip.fip.bin.xz"]).To(Equal("/bananapir3mini/archive/Armbian_26.11.1_Bananapir3mini_trixie_current_6.18.57_minimal.fip.bin.xz"))
+	})
+
+	It("Should ignore a redi_url outside dl.armbian.com", func() {
+		data := `{
+  "assets": [
+    {
+      "board_slug": "uefi-arm64",
+      "file_url": "https://github.com/armbian/sdk/releases/download/1/Armbian_26.8.14_Uefi-arm64_trixie_cloud_6.18.59-sdk_minimal.iso",
+      "redi_url": "https://github.com/armbian/sdk/releases/download/1/Armbian_26.8.14_Uefi-arm64_trixie_cloud_6.18.59-sdk_minimal.iso",
+      "distro": "trixie",
+      "branch": "cloud",
+      "variant": "minimal",
+      "file_application": "sdk",
+      "download_repository": "",
+      "file_extension": "iso"
+    }
+  ]
+}`
+
+		m, err := loadMapJSON(strings.NewReader(data), map[string]string{"iso": "-iso"})
+
+		Expect(err).To(BeNil())
+		Expect(m["uefi-arm64/Trixie_cloud_minimal-sdk-iso"]).To(Equal("/armbian/sdk/releases/download/1/Armbian_26.8.14_Uefi-arm64_trixie_cloud_6.18.59-sdk_minimal.iso"))
 	})
 })
